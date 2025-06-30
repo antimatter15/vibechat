@@ -21,6 +21,53 @@ import { events } from "aws-amplify/data";
 import semver from "semver";
 
 /**
+ * Type Definitions
+ */
+
+interface SessionFile {
+  sessionId: string;
+  projectPath: string;
+  filePath: string;
+}
+
+interface MessageUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}
+
+interface ClaudeMessage {
+  role?: string;
+  type?: string;
+  content?: Array<any>;
+  usage?: MessageUsage;
+  model?: string;
+}
+
+interface MessageData {
+  uuid?: string;
+  message?: ClaudeMessage;
+  timestamp?: string;
+}
+
+interface SessionState {
+  status: "ACTIVE" | "INACTIVE";
+  lastMessage: MessageData;
+  filePath: string;
+  projectPath: string;
+}
+
+interface ChatMessage {
+  id: string | number;
+  user: string;
+  amount: string;
+  text: string;
+  timestamp: string;
+  isBanner?: boolean;
+}
+
+/**
  * AWS Amplify Events Configuration
  */
 // @ts-ignore - Amplify types don't include 'Events' yet in stable release
@@ -79,7 +126,7 @@ async function checkVersionAndGetPricing() {
  * Claude Session Monitor Logic
  */
 class ClaudeSessionMonitor {
-  private sessions: Map<string, any>;
+  private sessions: Map<string, SessionState>;
   private todayTokens: number;
   private todayCost: number;
   private todayStart: number;
@@ -91,7 +138,7 @@ class ClaudeSessionMonitor {
   private claudePaths: string[];
 
   constructor(pricingData = null) {
-    this.sessions = new Map<string, any>();
+    this.sessions = new Map<string, SessionState>();
     this.todayTokens = 0;
     this.todayCost = 0;
     this.todayStart = this.getTodayStart();
@@ -162,7 +209,7 @@ class ClaudeSessionMonitor {
     );
   }
 
-  findAllSessions() {
+  findAllSessions(): SessionFile[] {
     const sessionFiles = [];
 
     for (const claudePath of this.claudePaths) {
@@ -203,7 +250,7 @@ class ClaudeSessionMonitor {
     return sessionFiles;
   }
 
-  async parseLastMessage(filePath) {
+  async parseLastMessage(filePath: string): Promise<MessageData | null> {
     try {
       const content = await readFile(filePath, "utf-8");
       const lines = content
@@ -228,7 +275,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async parseAllMessagesForDailyCount(filePath) {
+  async parseAllMessagesForDailyCount(filePath: string): Promise<MessageData[]> {
     try {
       const content = await readFile(filePath, "utf-8");
       const lines = content
@@ -241,7 +288,7 @@ class ClaudeSessionMonitor {
         try {
           const data = JSON.parse(line);
           if (data && data.message && data.timestamp) {
-            const timestamp = new Date(data.timestamp).getTime();
+            const timestamp = data.timestamp ? new Date(data.timestamp).getTime() : 0;
             if (timestamp >= this.todayStart) {
               messages.push(data);
             }
@@ -257,11 +304,11 @@ class ClaudeSessionMonitor {
     }
   }
 
-  isActiveMessage(messageData) {
+  isActiveMessage(messageData: MessageData | null): boolean {
     if (!messageData || !messageData.message) return false;
 
     const message = messageData.message;
-    const timestamp = new Date(messageData.timestamp).getTime();
+    const timestamp = messageData.timestamp ? new Date(messageData.timestamp).getTime() : 0;
     const now = Date.now();
     const fiveMinutesAgo = now - 5 * 60 * 1000;
 
@@ -295,12 +342,12 @@ class ClaudeSessionMonitor {
     return true;
   }
 
-  getTokensAndCostFromMessage(messageData) {
+  getTokensAndCostFromMessage(messageData: MessageData | null): { tokens: number; cost: number } {
     if (!messageData || !messageData.message || !messageData.message.usage) {
       return { tokens: 0, cost: 0 };
     }
 
-    const timestamp = new Date(messageData.timestamp).getTime();
+    const timestamp = messageData.timestamp ? new Date(messageData.timestamp).getTime() : 0;
     if (timestamp < this.todayStart) return { tokens: 0, cost: 0 };
 
     const usage = messageData.message.usage;
@@ -330,7 +377,7 @@ class ClaudeSessionMonitor {
     return { tokens: totalTokens, cost };
   }
 
-  async updateSessionState(sessionId, filePath, projectPath) {
+  async updateSessionState(sessionId: string, filePath: string, projectPath: string): Promise<void> {
     const lastMessage = await this.parseLastMessage(filePath);
     if (!lastMessage) return;
     const isActive = this.isActiveMessage(lastMessage);
@@ -352,7 +399,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async updateSession(sessionId, filePath, projectPath) {
+  async updateSession(sessionId: string, filePath: string, projectPath: string): Promise<void> {
     // Check if date has changed and reset if needed
     const now = Date.now();
     const currentDayStart = this.getTodayStart();
@@ -402,13 +449,13 @@ class ClaudeSessionMonitor {
     }
   }
 
-  getActiveSessions() {
+  getActiveSessions(): number {
     return Array.from(this.sessions.values()).filter(
       (session) => session.status === "ACTIVE",
     ).length;
   }
 
-  async recalculateDailyTotals() {
+  async recalculateDailyTotals(): Promise<void> {
     const sessionFiles = this.findAllSessions();
     
     // Reset totals
@@ -433,7 +480,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async initialScan() {
+  async initialScan(): Promise<void> {
     const sessionFiles = this.findAllSessions();
 
     // First pass: calculate daily totals from all messages
@@ -473,7 +520,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async watchDirectory(dirPath) {
+  async watchDirectory(dirPath: string): Promise<void> {
     if (!existsSync(dirPath) || this.isShuttingDown) return;
 
     try {
@@ -503,7 +550,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async handleFileChange(filePath) {
+  async handleFileChange(filePath: string): Promise<void> {
     if (!existsSync(filePath) || this.isShuttingDown) return;
 
     try {
