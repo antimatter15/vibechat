@@ -915,6 +915,12 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 
 // Main app
 async function main() {
+  // Detect unsupported Windows environment (outside of WSL)
+  if (process.platform === "win32") {
+    console.log("vibechat is not supported on native Windows. Please run inside WSL or another Unix-like environment.");
+    process.exit(1);
+  }
+
   // Check version and get pricing data
   const { pricing, banner, announce } = await checkVersionAndGetPricing();
   
