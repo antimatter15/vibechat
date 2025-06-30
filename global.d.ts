@@ -1,3 +1,5 @@
+import type * as React from "react";
+
 declare module "ink-text-input" {
   // Minimal fallback types for the ink-text-input component
   const TextInput: any;
