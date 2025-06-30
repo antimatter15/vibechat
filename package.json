@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "tsx main.tsx",
+    "dev_unlocked": "VIBECHAT_DEV=true tsx main.tsx",
     "start": "node main.js",
     "build": "npx esbuild main.tsx --bundle --platform=node --outfile=main.js --format=esm --external:aws-amplify --external:ink --external:ink-text-input --external:react --external:semver"
   },

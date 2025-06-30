@@ -576,6 +576,8 @@ const VibeChatLogo = ({ bannerText }) => (
   </Box>
 );
 
+const CHAT_DEV_MODE = import.meta.url.endsWith('.tsx') && process.env.VIBECHAT_DEV === 'true';
+
 /**
  * Chat UI Component
  */
@@ -583,7 +585,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const [messages, setMessages] = useState([]);
   const [staticMessages, setStaticMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
-  const [isHidden, setIsHidden] = useState(true);
+  const [isHidden, setIsHidden] = useState(!CHAT_DEV_MODE);
   const [terminalHeight, setTerminalHeight] = useState(24);
   const [showDisabledWarning, setShowDisabledWarning] = useState(false);
   const [showNetworkError, setShowNetworkError] = useState(false);
@@ -660,7 +662,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     monitor.onUpdate = (stats) => {
       setActiveSessions(stats.activeSessions);
       setTodayCost(stats.todayCost);
-      setIsHidden(stats.activeSessions === 0);
+      setIsHidden(CHAT_DEV_MODE ? false : stats.activeSessions === 0);
     };
 
     // Start monitoring and events
@@ -748,8 +750,8 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       const messageData = {
         type: "message",
         id: Date.now(),
-        user: username,
-        amount: `$${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} ${activeSessions}x`,
+        user: CHAT_DEV_MODE ? `${username} ඞ sus ඞ` : username,
+        amount: CHAT_DEV_MODE ? "$00.00 ☠" : `$${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} ${activeSessions}x`,
         text: trimmedInput,
         timestamp: new Date().toLocaleTimeString(),
       };
@@ -808,6 +810,20 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const renderUsername = (username) => {
+    const susIndicator = " ඞ sus ඞ";
+    if (username.includes(susIndicator)) {
+      const [baseUsername, ...rest] = username.split(susIndicator);
+      return (
+        <>
+          <Text bold color={getUserColor(baseUsername)}>{baseUsername}</Text>
+          <Text color="red">{susIndicator}</Text>
+        </>
+      );
+    }
+    return <Text bold color={getUserColor(username)}>{username}</Text>;
+  };
+
   const renderMessage = (msg) => {
     if (msg.isBanner) {
       return <VibeChatLogo bannerText={bannerText} />;
@@ -820,7 +836,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         <Box width={30} flexShrink={0} justifyContent="space-between">
           <Text color="gray">{msg.amount}</Text>
           <Text>
-            <Text bold color={userColor}>{msg.user}</Text>
+            {renderUsername(msg.user)}
             <Text>: </Text>
           </Text>
         </Box>
@@ -886,6 +902,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
             paddingX={1}
           >
             <Text bold color={getUserColor(username)}>{username}</Text>
+            {CHAT_DEV_MODE && <Text color="red"> (dev mode — ඞ sus ඞ) </Text>}
             <Text color="gray"> (${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} {activeSessions}x): </Text>
             <TextInput
               value={inputValue}
