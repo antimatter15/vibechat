@@ -1,0 +1,44 @@
+{
+  "name": "vibechat",
+  "version": "0.1.4",
+  "description": "Chatroom for when you are bored waiting for Claude",
+  "main": "main.js",
+  "type": "module",
+  "bin": {
+    "vibechat": "./main.js"
+  },
+  "scripts": {
+    "dev": "tsx main.tsx",
+    "start": "node main.js",
+    "build": "npx esbuild main.tsx --bundle --platform=node --outfile=main.js --format=esm --external:aws-amplify --external:ink --external:ink-text-input --external:react --external:semver"
+  },
+  "keywords": [
+    "claude",
+    "vibecoding",
+    "boredom",
+    "lonely"
+  ],
+  "author": "antimatter15",
+  "license": "MIT",
+  "dependencies": {
+    "ink": "^4.4.1",
+    "ink-text-input": "^5.0.1",
+    "react": "^18.2.0",
+    "aws-amplify": "^6.0.0",
+    "semver": "^7.6.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antimatter15/vibechat.git"
+  },
+  "homepage": "https://github.com/antimatter15/vibechat",
+  "bugs": {
+    "url": "https://github.com/antimatter15/vibechat/issues"
+  }
+}
