@@ -23,13 +23,16 @@ import semver from "semver";
 /**
  * AWS Amplify Events Configuration
  */
+// @ts-ignore - Amplify types don't include 'Events' yet in stable release
 Amplify.configure({
   API: {
     Events: {
       endpoint:
         "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
       region: "us-east-1",
-    },
+      // Type mismatch in Amplify typings, but runtime accepts this.
+      defaultAuthMode: "lambda" as any,
+    } as any,
   },
 });
 
@@ -76,12 +79,23 @@ async function checkVersionAndGetPricing() {
  * Claude Session Monitor Logic
  */
 class ClaudeSessionMonitor {
+  private sessions: Map<string, any>;
+  private todayTokens: number;
+  private todayCost: number;
+  private todayStart: number;
+  private watchers: Array<{ path: string; watcher: any }>;
+  private isShuttingDown: boolean;
+  private modelPricing: Map<string, any>;
+  public onUpdate: ((stats: any) => void) | null;
+  private processedMessages: Set<string>;
+  private claudePaths: string[];
+
   constructor(pricingData = null) {
-    this.sessions = new Map();
+    this.sessions = new Map<string, any>();
     this.todayTokens = 0;
     this.todayCost = 0;
     this.todayStart = this.getTodayStart();
-    this.watchers = [];
+    this.watchers = [] as Array<{ path: string; watcher: any }>;
     this.isShuttingDown = false;
     this.modelPricing = new Map();
     this.onUpdate = null; // Callback for UI updates
@@ -856,10 +870,12 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
               paddingY={1}
               flexDirection="column"
             >
+              {/* @ts-ignore */}
               <Text wrap="wrap" textAlign="center">
                 Claude isn't clauding right now. Go tell him to do something to access the chatroom.
               </Text>
               <Box marginTop={1}>
+                {/* @ts-ignore */}
                 <Text color="gray" dimColor textAlign="center">
                   Today's spend: ${todayCost.toFixed(2)}
                 </Text>

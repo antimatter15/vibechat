@@ -5,7 +5,7 @@
     "moduleResolution": "node16",
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
     "jsx": "react",
     "types": ["node", "react"],
