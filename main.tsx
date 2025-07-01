@@ -7,7 +7,7 @@ import { Amplify } from "aws-amplify";
 import { events } from "aws-amplify/data";
 import chalk from "chalk";
 import { Box, measureElement, render, Static, Text, useApp, useInput, useStdout } from "ink";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import semver from "semver";
 
 const TextInput = ({
