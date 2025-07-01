@@ -1,29 +1,27 @@
 #!/usr/bin/env node
 import React, { useState, useEffect, useRef } from "react";
-import {
-  render,
-  Box,
-  Text,
-  useInput,
-  useApp,
-  Static,
-  useStdout,
-  measureElement,
-} from "ink";
+import { render, Box, Text, useInput, useApp, Static, useStdout, measureElement } from "ink";
 import chalk from "chalk";
 
-const TextInput = ({ value: originalValue = '', placeholder = '', focus = true, onChange, onSubmit, ...props }) => {
+const TextInput = ({
+  value: originalValue = "",
+  placeholder = "",
+  focus = true,
+  onChange,
+  onSubmit,
+  ...props
+}) => {
   const [state, setState] = useState({
     cursorOffset: originalValue.length,
-    cursorWidth: 0
+    cursorWidth: 0,
   });
-  
+
   const { cursorOffset } = state;
 
   useEffect(() => {
     setState(previousState => {
       if (!focus) return previousState;
-      const newValue = originalValue || '';
+      const newValue = originalValue || "";
       if (previousState.cursorOffset > newValue.length - 1) {
         return { cursorOffset: newValue.length, cursorWidth: 0 };
       }
@@ -31,67 +29,79 @@ const TextInput = ({ value: originalValue = '', placeholder = '', focus = true, 
     });
   }, [originalValue, focus]);
 
-  useInput((input, key) => {
-    if (key.upArrow || key.downArrow || (key.ctrl && input === 'c') || (key.ctrl && input === 'd') || key.tab || (key.shift && key.tab)) {
-      return;
-    }
-    
-    if (key.return) {
-      if (onSubmit) onSubmit(originalValue);
-      return;
-    }
-
-    let nextCursorOffset = cursorOffset;
-    let nextValue = originalValue;
-
-    if (key.leftArrow) {
-      nextCursorOffset--;
-    } else if (key.rightArrow) {
-      nextCursorOffset++;
-    } else if (key.backspace || key.delete) {
-      if (cursorOffset > 0) {
-        nextValue = originalValue.slice(0, cursorOffset - 1) + originalValue.slice(cursorOffset);
-        nextCursorOffset--;
+  useInput(
+    (input, key) => {
+      if (
+        key.upArrow ||
+        key.downArrow ||
+        (key.ctrl && input === "c") ||
+        (key.ctrl && input === "d") ||
+        key.tab ||
+        (key.shift && key.tab)
+      ) {
+        return;
       }
-    } else if (key.ctrl && input === 'w') {
-      const trimmed = originalValue.trimEnd();
-      const lastSpaceIndex = trimmed.lastIndexOf(' ');
-      nextValue = lastSpaceIndex === -1 ? '' : originalValue.substring(0, lastSpaceIndex + 1);
-      nextCursorOffset = nextValue.length;
-    } else {
-      nextValue = originalValue.slice(0, cursorOffset) + input + originalValue.slice(cursorOffset);
-      nextCursorOffset += input.length;
-    }
 
-    if (nextCursorOffset < 0) nextCursorOffset = 0;
-    if (nextCursorOffset > nextValue.length) nextCursorOffset = nextValue.length;
+      if (key.return) {
+        if (onSubmit) onSubmit(originalValue);
+        return;
+      }
 
-    setState({ cursorOffset: nextCursorOffset, cursorWidth: 0 });
-    if (nextValue !== originalValue) onChange(nextValue);
-  }, { isActive: focus });
+      let nextCursorOffset = cursorOffset;
+      let nextValue = originalValue;
+
+      if (key.leftArrow) {
+        nextCursorOffset--;
+      } else if (key.rightArrow) {
+        nextCursorOffset++;
+      } else if (key.backspace || key.delete) {
+        if (cursorOffset > 0) {
+          nextValue = originalValue.slice(0, cursorOffset - 1) + originalValue.slice(cursorOffset);
+          nextCursorOffset--;
+        }
+      } else if (key.ctrl && input === "w") {
+        const trimmed = originalValue.trimEnd();
+        const lastSpaceIndex = trimmed.lastIndexOf(" ");
+        nextValue = lastSpaceIndex === -1 ? "" : originalValue.substring(0, lastSpaceIndex + 1);
+        nextCursorOffset = nextValue.length;
+      } else {
+        nextValue =
+          originalValue.slice(0, cursorOffset) + input + originalValue.slice(cursorOffset);
+        nextCursorOffset += input.length;
+      }
+
+      if (nextCursorOffset < 0) nextCursorOffset = 0;
+      if (nextCursorOffset > nextValue.length) nextCursorOffset = nextValue.length;
+
+      setState({ cursorOffset: nextCursorOffset, cursorWidth: 0 });
+      if (nextValue !== originalValue) onChange(nextValue);
+    },
+    { isActive: focus },
+  );
 
   let renderedValue = originalValue;
   let renderedPlaceholder = placeholder ? chalk.grey(placeholder) : undefined;
-  
+
   if (focus) {
     if (originalValue.length === 0) {
-      renderedPlaceholder = placeholder.length > 0 
-        ? chalk.inverse(placeholder[0]) + chalk.grey(placeholder.slice(1))
-        : chalk.inverse(' ');
-      renderedValue = chalk.inverse(' ');
+      renderedPlaceholder =
+        placeholder.length > 0
+          ? chalk.inverse(placeholder[0]) + chalk.grey(placeholder.slice(1))
+          : chalk.inverse(" ");
+      renderedValue = chalk.inverse(" ");
     } else {
-      renderedValue = '';
+      renderedValue = "";
       let i = 0;
       for (const char of originalValue) {
         renderedValue += i === cursorOffset ? chalk.inverse(char) : char;
         i++;
       }
       if (cursorOffset === originalValue.length) {
-        renderedValue += chalk.inverse(' ');
+        renderedValue += chalk.inverse(" ");
       }
     }
   }
-  
+
   return <Text>{originalValue.length > 0 ? renderedValue : renderedPlaceholder}</Text>;
 };
 import { readFile, watch, writeFile, mkdir } from "node:fs/promises";
@@ -109,8 +119,7 @@ import semver from "semver";
 Amplify.configure({
   API: {
     Events: {
-      endpoint:
-        "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
+      endpoint: "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
       region: "us-east-1",
     },
   },
@@ -118,7 +127,7 @@ Amplify.configure({
 
 const auth = {
   authMode: "lambda",
-  authToken: 'i-am-being-nice-not-evil'
+  authToken: "i-am-being-nice-not-evil",
 };
 
 /**
@@ -128,25 +137,29 @@ const CURRENT_VERSION = "0.1.4";
 
 async function checkVersionAndGetPricing() {
   try {
-    const response = await fetch("https://4vfjm2zeo2nmmriejrlwsfakce0wadpd.lambda-url.us-east-1.on.aws/info");
-    
+    const response = await fetch(
+      "https://4vfjm2zeo2nmmriejrlwsfakce0wadpd.lambda-url.us-east-1.on.aws/info",
+    );
+
     if (!response.ok) {
       // If version check fails, continue anyway
       return { pricing: null, banner: null, announce: null };
     }
-    
+
     const data = await response.json();
     const minVersion = data.min_version;
-    
+
     if (minVersion && semver.lt(CURRENT_VERSION, minVersion)) {
-      console.log(`Please upgrade vibechat with \`npm i -g vibechat@latest\` as the current version (${CURRENT_VERSION}) is too old to connect (minimum required: ${minVersion})`);
+      console.log(
+        `Please upgrade vibechat with \`npm i -g vibechat@latest\` as the current version (${CURRENT_VERSION}) is too old to connect (minimum required: ${minVersion})`,
+      );
       process.exit(1);
     }
-    
-    return { 
+
+    return {
       pricing: data.pricing || null,
       banner: data.banner || null,
-      announce: data.announce || null
+      announce: data.announce || null,
     };
   } catch (error) {
     // Network error - unable to connect to server
@@ -171,7 +184,7 @@ class ClaudeSessionMonitor {
     this.processedMessages = new Set(); // Track processed message UUIDs
 
     this.claudePaths = this.getClaudePaths();
-    
+
     // Load pricing data if provided
     if (pricingData) {
       this.loadPricingData(pricingData);
@@ -202,8 +215,8 @@ class ClaudeSessionMonitor {
     if (envPaths) {
       const envPathList = envPaths
         .split(",")
-        .map((p) => p.trim())
-        .filter((p) => p);
+        .map(p => p.trim())
+        .filter(p => p);
       for (const envPath of envPathList) {
         if (existsSync(path.join(envPath, "projects"))) {
           paths.push(envPath);
@@ -211,10 +224,7 @@ class ClaudeSessionMonitor {
       }
     }
 
-    const defaultPaths = [
-      path.join(homedir(), ".config/claude"),
-      path.join(homedir(), ".claude"),
-    ];
+    const defaultPaths = [path.join(homedir(), ".config/claude"), path.join(homedir(), ".claude")];
 
     for (const defaultPath of defaultPaths) {
       if (existsSync(path.join(defaultPath, "projects"))) {
@@ -226,9 +236,7 @@ class ClaudeSessionMonitor {
   }
 
   isUuidFilename(filename) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(
-      filename,
-    );
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(filename);
   }
 
   findAllSessions() {
@@ -278,7 +286,7 @@ class ClaudeSessionMonitor {
       const lines = content
         .trim()
         .split("\n")
-        .filter((line) => line.length > 0);
+        .filter(line => line.length > 0);
 
       if (lines.length === 0) return null;
 
@@ -303,7 +311,7 @@ class ClaudeSessionMonitor {
       const lines = content
         .trim()
         .split("\n")
-        .filter((line) => line.length > 0);
+        .filter(line => line.length > 0);
 
       const messages = [];
       for (const line of lines) {
@@ -338,22 +346,23 @@ class ClaudeSessionMonitor {
 
     if (message.role === "assistant" && message.type === "message") {
       const hasToolCalls =
-        message.content &&
-        message.content.some((item) => item.type === "tool_use");
-      
+        message.content && message.content.some(item => item.type === "tool_use");
+
       if (hasToolCalls) return true;
 
       // Check if assistant message contains action phrases
       const textContent = message.content && message.content.find(item => item.type === "text");
       if (textContent && textContent.text) {
         const text = textContent.text.trim();
-        if (text.startsWith("Now I'll") || 
-            text.startsWith("I'll") || 
-            text.startsWith("Now I") || 
-            text.startsWith("Now let") ||
-            text.startsWith("Finally,") ||
-            text.includes("Let me") ||
-            text.includes("I need")) {
+        if (
+          text.startsWith("Now I'll") ||
+          text.startsWith("I'll") ||
+          text.startsWith("Now I") ||
+          text.startsWith("Now let") ||
+          text.startsWith("Finally,") ||
+          text.includes("Let me") ||
+          text.includes("I need")
+        ) {
           return true;
         }
       }
@@ -382,8 +391,7 @@ class ClaudeSessionMonitor {
       cacheRead: usage.cache_read_input_tokens || 0,
     };
 
-    const totalTokens =
-      tokens.input + tokens.output + tokens.cacheCreation + tokens.cacheRead;
+    const totalTokens = tokens.input + tokens.output + tokens.cacheCreation + tokens.cacheRead;
 
     let cost = 0;
     if (model && this.modelPricing.has(model)) {
@@ -431,7 +439,7 @@ class ClaudeSessionMonitor {
       this.todayTokens = 0;
       this.todayCost = 0;
       this.processedMessages.clear();
-      
+
       // Re-scan all sessions for today's costs
       await this.recalculateDailyTotals();
     }
@@ -451,11 +459,7 @@ class ClaudeSessionMonitor {
     });
 
     const { tokens, cost } = this.getTokensAndCostFromMessage(lastMessage);
-    if (
-      tokens > 0 &&
-      lastMessage.uuid &&
-      !this.processedMessages.has(lastMessage.uuid)
-    ) {
+    if (tokens > 0 && lastMessage.uuid && !this.processedMessages.has(lastMessage.uuid)) {
       this.todayTokens += tokens;
       this.todayCost += cost;
       this.processedMessages.add(lastMessage.uuid);
@@ -472,14 +476,12 @@ class ClaudeSessionMonitor {
   }
 
   getActiveSessions() {
-    return Array.from(this.sessions.values()).filter(
-      (session) => session.status === "ACTIVE",
-    ).length;
+    return Array.from(this.sessions.values()).filter(session => session.status === "ACTIVE").length;
   }
 
   async recalculateDailyTotals() {
     const sessionFiles = this.findAllSessions();
-    
+
     // Reset totals
     this.todayTokens = 0;
     this.todayCost = 0;
@@ -488,10 +490,10 @@ class ClaudeSessionMonitor {
     // Calculate daily totals from all messages
     for (const { sessionId, filePath, projectPath } of sessionFiles) {
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
-      
+
       for (const messageData of allMessages) {
         const { tokens, cost } = this.getTokensAndCostFromMessage(messageData);
-        
+
         // Only count each message once (check UUID to avoid duplicates)
         if (tokens > 0 && messageData.uuid && !this.processedMessages.has(messageData.uuid)) {
           this.todayTokens += tokens;
@@ -508,10 +510,10 @@ class ClaudeSessionMonitor {
     // First pass: calculate daily totals from all messages
     for (const { sessionId, filePath, projectPath } of sessionFiles) {
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
-      
+
       for (const messageData of allMessages) {
         const { tokens, cost } = this.getTokensAndCostFromMessage(messageData);
-        
+
         // Only count each message once (check UUID to avoid duplicates)
         if (tokens > 0 && messageData.uuid && !this.processedMessages.has(messageData.uuid)) {
           this.todayTokens += tokens;
@@ -602,10 +604,10 @@ const getConfigPath = () => {
   return null;
 };
 
-const saveSettings = async (settings) => {
+const saveSettings = async settings => {
   const configPath = getConfigPath();
   if (!configPath) return;
-  
+
   try {
     const configDir = path.dirname(configPath);
     if (!existsSync(configDir)) {
@@ -622,7 +624,7 @@ const loadSettings = async () => {
   if (!configPath || !existsSync(configPath)) {
     return {};
   }
-  
+
   try {
     const content = await readFile(configPath, "utf-8");
     return JSON.parse(content);
@@ -659,7 +661,7 @@ const VibeChatLogo = ({ bannerText }) => (
   </Box>
 );
 
-const CHAT_DEV_MODE = import.meta.url.endsWith('.tsx') && process.env.VIBECHAT_DEV === 'true';
+const CHAT_DEV_MODE = import.meta.url.endsWith(".tsx") && process.env.VIBECHAT_DEV === "true";
 
 /**
  * Chat UI Component
@@ -679,7 +681,11 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const [eventsChannel, setEventsChannel] = useState(null);
   const [username, setUsername] = useState(os.userInfo().username);
   const [settings, setSettings] = useState({});
-  const [exitWarning, setExitWarning] = useState({ timer: null, show: false, type: '' });
+  const [exitWarning, setExitWarning] = useState({
+    timer: null,
+    show: false,
+    type: "",
+  });
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -708,7 +714,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         setEventsChannel(channel);
 
         const subscription = channel.subscribe({
-          next: (data) => {
+          next: data => {
             // Handle incoming messages - data is nested in event property
             const messageData = data.event || data;
             if (messageData.type === "message" && messageData.user && messageData.text) {
@@ -722,7 +728,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
               setMessages(prev => [...prev, newMessage]);
             }
           },
-          error: (err) => {
+          error: err => {
             // Silently handle subscription errors
           },
         });
@@ -730,7 +736,6 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         subscriptionCleanup = () => {
           subscription.unsubscribe();
         };
-
       } catch (error) {
         // Show channel setup error in footer
         setShowNetworkError(true);
@@ -743,7 +748,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     };
 
     // Set up monitor callback
-    monitor.onUpdate = (stats) => {
+    monitor.onUpdate = stats => {
       setActiveSessions(stats.activeSessions);
       setTodayCost(stats.todayCost);
       setIsHidden(CHAT_DEV_MODE ? false : stats.activeSessions === 0);
@@ -798,18 +803,18 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       if (messageDims.height >= termHeight) {
         const numOverflow = Math.max(1, messages.length - termHeight);
         setMessages(messages.slice(numOverflow));
-        setStaticMessages((msgs) => [...msgs, ...messages.slice(0, numOverflow)]);
+        setStaticMessages(msgs => [...msgs, ...messages.slice(0, numOverflow)]);
       }
     }
   });
 
-  const handleExitKey = (keyType) => {
+  const handleExitKey = keyType => {
     if (exitWarning.timer) {
       if (exitWarning.type === keyType) {
         // Same key pressed twice within 1.5 seconds - exit the whole process
         clearTimeout(exitWarning.timer);
-        setExitWarning({ timer: null, show: false, type: '' });
-        process.kill(process.pid, 'SIGTERM');
+        setExitWarning({ timer: null, show: false, type: "" });
+        process.kill(process.pid, "SIGTERM");
         return;
       } else {
         // Different key pressed - clear previous timer and start new one
@@ -819,24 +824,24 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 
     // First press or different key - show warning and start timer
     const timer = setTimeout(() => {
-      setExitWarning({ timer: null, show: false, type: '' });
+      setExitWarning({ timer: null, show: false, type: "" });
     }, 1500);
     setExitWarning({ timer, show: true, type: keyType });
   };
 
   useInput((input, key) => {
     if (key.escape) {
-      handleExitKey('Escape');
+      handleExitKey("Escape");
       return;
     }
-    
-    if (key.ctrl && input === 'c') {
-      handleExitKey('Ctrl+C');
+
+    if (key.ctrl && input === "c") {
+      handleExitKey("Ctrl+C");
       return;
     }
-    
-    if (key.ctrl && input === 'd') {
-      handleExitKey('Ctrl+D');
+
+    if (key.ctrl && input === "d") {
+      handleExitKey("Ctrl+D");
     }
   });
 
@@ -869,7 +874,9 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         type: "message",
         id: Date.now(),
         user: CHAT_DEV_MODE ? `${username} ඞ sus ඞ` : username,
-        amount: CHAT_DEV_MODE ? "$00.00 ☠" : `$${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} ${activeSessions}x`,
+        amount: CHAT_DEV_MODE
+          ? "$00.00 ☠"
+          : `$${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} ${activeSessions}x`,
         text: trimmedInput,
         timestamp: new Date().toLocaleTimeString(),
       };
@@ -889,7 +896,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 
   useEffect(() => {
     const initialMessages = [];
-    
+
     // Add banner as the first message
     const bannerMessage = {
       id: "banner",
@@ -897,7 +904,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       isBanner: true,
     };
     initialMessages.push(bannerMessage);
-    
+
     // Add announcement message if available
     if (announceText) {
       const announceMessage = {
@@ -909,46 +916,52 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       };
       initialMessages.push(announceMessage);
     }
-    
+
     setMessages(initialMessages);
   }, [announceText]);
 
-  const getUserColor = (username) => {
+  const getUserColor = username => {
     // Special color for announcement messages
     if (username === "announcements") {
       return "yellow";
     }
-    
+
     let hash = 0;
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
-    const colors = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'];
+
+    const colors = ["red", "green", "yellow", "blue", "magenta", "cyan"];
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const renderUsername = (username) => {
+  const renderUsername = username => {
     const susIndicator = " ඞ sus ඞ";
     if (username.includes(susIndicator)) {
       const [baseUsername, ...rest] = username.split(susIndicator);
       return (
         <>
-          <Text bold color={getUserColor(baseUsername)}>{baseUsername}</Text>
+          <Text bold color={getUserColor(baseUsername)}>
+            {baseUsername}
+          </Text>
           <Text color="red">{susIndicator}</Text>
         </>
       );
     }
-    return <Text bold color={getUserColor(username)}>{username}</Text>;
+    return (
+      <Text bold color={getUserColor(username)}>
+        {username}
+      </Text>
+    );
   };
 
-  const renderMessage = (msg) => {
+  const renderMessage = msg => {
     if (msg.isBanner) {
       return <VibeChatLogo bannerText={bannerText} />;
     }
-    
+
     const userColor = getUserColor(msg.user);
-    
+
     return (
       <Box>
         <Box width={30} flexShrink={0} justifyContent="space-between">
@@ -967,9 +980,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 
   return (
     <Box flexDirection="column">
-      <Static items={staticMessages}>
-        {(msg) => <Box key={msg.id}>{renderMessage(msg)}</Box>}
-      </Static>
+      <Static items={staticMessages}>{msg => <Box key={msg.id}>{renderMessage(msg)}</Box>}</Static>
 
       {isHidden ? (
         <Box
@@ -1003,25 +1014,23 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         </Box>
       ) : (
         <Box ref={messagesRef} flexDirection="column">
-          {messages.map((msg) => (
-            <Box key={msg.id}>
-              {renderMessage(msg)}
-            </Box>
+          {messages.map(msg => (
+            <Box key={msg.id}>{renderMessage(msg)}</Box>
           ))}
         </Box>
       )}
 
       {showChatInput && (
         <Box ref={chatInputRef} flexDirection="column">
-          <Box
-            marginTop={1}
-            borderStyle="round"
-            borderColor="gray"
-            paddingX={1}
-          >
-            <Text bold color={getUserColor(username)}>{username}</Text>
+          <Box marginTop={1} borderStyle="round" borderColor="gray" paddingX={1}>
+            <Text bold color={getUserColor(username)}>
+              {username}
+            </Text>
             {CHAT_DEV_MODE && <Text color="red"> (dev mode — ඞ sus ඞ) </Text>}
-            <Text color="gray"> (${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} {activeSessions}x): </Text>
+            <Text color="gray">
+              {" "}
+              (${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} {activeSessions}x):{" "}
+            </Text>
             <TextInput
               value={inputValue}
               onChange={setInputValue}
@@ -1030,17 +1039,25 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
             />
           </Box>
           <Box paddingX={1}>
-            <Text 
-              color={showNetworkError ? "red" : showDisabledWarning ? "yellow" : exitWarning.show ? "yellow" : "gray"} 
+            <Text
+              color={
+                showNetworkError
+                  ? "red"
+                  : showDisabledWarning
+                    ? "yellow"
+                    : exitWarning.show
+                      ? "yellow"
+                      : "gray"
+              }
               dimColor={!showDisabledWarning && !showNetworkError && !exitWarning.show}
               bold={showDisabledWarning || showNetworkError || exitWarning.show}
             >
               {exitWarning.show
                 ? `Press ${exitWarning.type} again to exit`
-                : showNetworkError 
-                  ? (footerMessage || "Network error - message not sent. Press Enter to retry")
-                  : isHidden 
-                    ? "Posting disabled until session resumes" 
+                : showNetworkError
+                  ? footerMessage || "Network error - message not sent. Press Enter to retry"
+                  : isHidden
+                    ? "Posting disabled until session resumes"
                     : "Use /nick <name> to change username"}
             </Text>
           </Box>
@@ -1054,7 +1071,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 async function main() {
   // Check version and get pricing data
   const { pricing, banner, announce } = await checkVersionAndGetPricing();
-  
+
   const monitor = new ClaudeSessionMonitor(pricing);
   let isExiting = false;
 
@@ -1075,7 +1092,7 @@ async function main() {
   process.on("SIGTERM", shutdown);
 
   render(<ChatUI monitor={monitor} bannerText={banner} announceText={announce} />, {
-    exitOnCtrlC: false
+    exitOnCtrlC: false,
   });
 }
 

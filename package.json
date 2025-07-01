@@ -11,7 +11,11 @@
     "dev": "tsx main.tsx",
     "dev_unlocked": "VIBECHAT_DEV=true tsx main.tsx",
     "start": "node main.js",
-    "build": "npx esbuild main.tsx --bundle --platform=node --outfile=main.js --format=esm --external:aws-amplify --external:ink --external:ink-text-input --external:react --external:semver"
+    "build": "npx esbuild main.tsx --bundle --platform=node --outfile=main.js --format=esm --external:aws-amplify --external:ink --external:ink-text-input --external:react --external:semver",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "format-check": "biome format ."
   },
   "keywords": [
     "claude",
@@ -28,6 +32,7 @@
     "semver": "^7.6.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.0.6",
     "esbuild": "^0.25.5"
   },
   "engines": {
