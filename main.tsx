@@ -32,7 +32,7 @@ const TextInput = ({ value: originalValue = '', placeholder = '', focus = true, 
   }, [originalValue, focus]);
 
   useInput((input, key) => {
-    if (key.upArrow || key.downArrow || (key.ctrl && input === 'c') || key.tab || (key.shift && key.tab)) {
+    if (key.upArrow || key.downArrow || (key.ctrl && input === 'c') || (key.ctrl && input === 'd') || key.tab || (key.shift && key.tab)) {
       return;
     }
     
@@ -679,6 +679,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const [eventsChannel, setEventsChannel] = useState(null);
   const [username, setUsername] = useState(os.userInfo().username);
   const [settings, setSettings] = useState({});
+  const [exitWarning, setExitWarning] = useState({ timer: null, show: false, type: '' });
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -761,6 +762,9 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       if (subscriptionCleanup) {
         subscriptionCleanup();
       }
+      if (exitWarning.timer) {
+        clearTimeout(exitWarning.timer);
+      }
     };
   }, [monitor, exit]);
 
@@ -799,9 +803,40 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     }
   });
 
+  const handleExitKey = (keyType) => {
+    if (exitWarning.timer) {
+      if (exitWarning.type === keyType) {
+        // Same key pressed twice within 1.5 seconds - exit the whole process
+        clearTimeout(exitWarning.timer);
+        setExitWarning({ timer: null, show: false, type: '' });
+        process.kill(process.pid, 'SIGTERM');
+        return;
+      } else {
+        // Different key pressed - clear previous timer and start new one
+        clearTimeout(exitWarning.timer);
+      }
+    }
+
+    // First press or different key - show warning and start timer
+    const timer = setTimeout(() => {
+      setExitWarning({ timer: null, show: false, type: '' });
+    }, 1500);
+    setExitWarning({ timer, show: true, type: keyType });
+  };
+
   useInput((input, key) => {
     if (key.escape) {
-      exit();
+      handleExitKey('Escape');
+      return;
+    }
+    
+    if (key.ctrl && input === 'c') {
+      handleExitKey('Ctrl+C');
+      return;
+    }
+    
+    if (key.ctrl && input === 'd') {
+      handleExitKey('Ctrl+D');
     }
   });
 
@@ -996,15 +1031,17 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
           </Box>
           <Box paddingX={1}>
             <Text 
-              color={showNetworkError ? "red" : showDisabledWarning ? "yellow" : "gray"} 
-              dimColor={!showDisabledWarning && !showNetworkError}
-              bold={showDisabledWarning || showNetworkError}
+              color={showNetworkError ? "red" : showDisabledWarning ? "yellow" : exitWarning.show ? "yellow" : "gray"} 
+              dimColor={!showDisabledWarning && !showNetworkError && !exitWarning.show}
+              bold={showDisabledWarning || showNetworkError || exitWarning.show}
             >
-              {showNetworkError 
-                ? (footerMessage || "Network error - message not sent. Press Enter to retry")
-                : isHidden 
-                  ? "Posting disabled until session resumes" 
-                  : "Use /nick <name> to change username"}
+              {exitWarning.show
+                ? `Press ${exitWarning.type} again to exit`
+                : showNetworkError 
+                  ? (footerMessage || "Network error - message not sent. Press Enter to retry")
+                  : isHidden 
+                    ? "Posting disabled until session resumes" 
+                    : "Use /nick <name> to change username"}
             </Text>
           </Box>
         </Box>
@@ -1035,10 +1072,11 @@ async function main() {
     process.exit(0);
   };
 
-  process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  render(<ChatUI monitor={monitor} bannerText={banner} announceText={announce} />);
+  render(<ChatUI monitor={monitor} bannerText={banner} announceText={announce} />, {
+    exitOnCtrlC: false
+  });
 }
 
 main().catch(error => {
