@@ -596,6 +596,8 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const [eventsChannel, setEventsChannel] = useState(null);
   const [username, setUsername] = useState(os.userInfo().username);
   const [settings, setSettings] = useState({});
+  const [exitWarning, setExitWarning] = useState(null);
+  const [lastExitAttempt, setLastExitAttempt] = useState(null);
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -716,11 +718,60 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     }
   });
 
+  // Enhanced keyboard handling for terminal compliance
   useInput((input, key) => {
+    const now = Date.now();
+    
+    // Handle Ctrl+D (EOF) - exit application
+    if (key.ctrl && input === 'd') {
+      handleExitAttempt('Ctrl+D', now);
+      return;
+    }
+    
+    // Handle Ctrl+C - exit application  
+    if (key.ctrl && input === 'c') {
+      handleExitAttempt('Ctrl+C', now);
+      return;
+    }
+    
+    // Handle Escape - exit application
     if (key.escape) {
-      exit();
+      handleExitAttempt('Escape', now);
+      return;
+    }
+    
+    // Note: Ctrl+W for word deletion is not supported due to ink-text-input limitations
+    
+    // Clear exit warning if user presses other keys
+    if (exitWarning) {
+      setExitWarning(null);
+      setLastExitAttempt(null);
     }
   });
+
+  // Function to handle exit attempts with confirmation
+  const handleExitAttempt = (keyName, timestamp) => {
+    const CONFIRMATION_TIMEOUT = 3000; // 3 seconds
+    
+    if (lastExitAttempt && 
+        lastExitAttempt.key === keyName && 
+        timestamp - lastExitAttempt.timestamp < CONFIRMATION_TIMEOUT) {
+      // Second press within timeout - actually exit
+      exit();
+    } else {
+      // First press or timeout expired - show warning
+      setExitWarning(`Press ${keyName} again to exit`);
+      setLastExitAttempt({ key: keyName, timestamp });
+      
+      // Clear warning after timeout
+      setTimeout(() => {
+        setExitWarning(null);
+        setLastExitAttempt(null);
+      }, CONFIRMATION_TIMEOUT);
+    }
+  };
+
+
 
   const handleSubmit = async () => {
     if (inputValue.trim()) {
@@ -913,15 +964,17 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
           </Box>
           <Box paddingX={1}>
             <Text 
-              color={showNetworkError ? "red" : showDisabledWarning ? "yellow" : "gray"} 
-              dimColor={!showDisabledWarning && !showNetworkError}
-              bold={showDisabledWarning || showNetworkError}
+              color={exitWarning ? "red" : showNetworkError ? "red" : showDisabledWarning ? "yellow" : "gray"} 
+              dimColor={!showDisabledWarning && !showNetworkError && !exitWarning}
+              bold={showDisabledWarning || showNetworkError || exitWarning}
             >
-              {showNetworkError 
-                ? (footerMessage || "Network error - message not sent. Press Enter to retry")
-                : isHidden 
-                  ? "Posting disabled until session resumes" 
-                  : "Use /nick <name> to change username"}
+              {exitWarning 
+                ? exitWarning
+                : showNetworkError 
+                  ? (footerMessage || "Network error - message not sent. Press Enter to retry")
+                  : isHidden 
+                    ? "Posting disabled until session resumes" 
+                    : "Use /nick <name> to change username • Ctrl+D/Ctrl+C: exit"}
             </Text>
           </Box>
         </Box>
