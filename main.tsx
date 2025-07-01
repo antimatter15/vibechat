@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import React, { useState, useEffect, useRef } from "react";
-import { render, Box, Text, useInput, useApp, Static, useStdout, measureElement } from "ink";
 import chalk from "chalk";
+import { Box, measureElement, render, Static, Text, useApp, useInput, useStdout } from "ink";
+import { useEffect, useRef, useState } from "react";
 
 const TextInput = ({
   value: originalValue = "",
@@ -9,7 +9,6 @@ const TextInput = ({
   focus = true,
   onChange,
   onSubmit,
-  ...props
 }) => {
   const [state, setState] = useState({
     cursorOffset: originalValue.length,
@@ -104,11 +103,11 @@ const TextInput = ({
 
   return <Text>{originalValue.length > 0 ? renderedValue : renderedPlaceholder}</Text>;
 };
-import { readFile, watch, writeFile, mkdir } from "node:fs/promises";
+
 import { existsSync, readdirSync, statSync } from "node:fs";
+import { mkdir, readFile, watch, writeFile } from "node:fs/promises";
+import os, { homedir } from "node:os";
 import path from "node:path";
-import { homedir } from "node:os";
-import os from "node:os";
 import { Amplify } from "aws-amplify";
 import { events } from "aws-amplify/data";
 import semver from "semver";
@@ -161,7 +160,7 @@ async function checkVersionAndGetPricing() {
       banner: data.banner || null,
       announce: data.announce || null,
     };
-  } catch (error) {
+  } catch (_error) {
     // Network error - unable to connect to server
     console.log("Unable to connect to vibechat server. Please check your internet connection.");
     process.exit(1);
@@ -268,11 +267,11 @@ class ClaudeSessionMonitor {
                 });
               }
             }
-          } catch (error) {
+          } catch (_error) {
             // Skip directories we can't read
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Skip errors
       }
     }
@@ -294,13 +293,11 @@ class ClaudeSessionMonitor {
         try {
           const data = JSON.parse(lines[i]);
           return data;
-        } catch (parseError) {
-          continue;
-        }
+        } catch (_parseError) {}
       }
 
       return null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -317,19 +314,17 @@ class ClaudeSessionMonitor {
       for (const line of lines) {
         try {
           const data = JSON.parse(line);
-          if (data && data.message && data.timestamp) {
+          if (data?.message && data.timestamp) {
             const timestamp = new Date(data.timestamp).getTime();
             if (timestamp >= this.todayStart) {
               messages.push(data);
             }
           }
-        } catch (parseError) {
-          continue;
-        }
+        } catch (_parseError) {}
       }
 
       return messages;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -345,14 +340,13 @@ class ClaudeSessionMonitor {
     if (timestamp < fiveMinutesAgo) return false;
 
     if (message.role === "assistant" && message.type === "message") {
-      const hasToolCalls =
-        message.content && message.content.some(item => item.type === "tool_use");
+      const hasToolCalls = message.content?.some(item => item.type === "tool_use");
 
       if (hasToolCalls) return true;
 
       // Check if assistant message contains action phrases
-      const textContent = message.content && message.content.find(item => item.type === "text");
-      if (textContent && textContent.text) {
+      const textContent = message.content?.find(item => item.type === "text");
+      if (textContent?.text) {
         const text = textContent.text.trim();
         if (
           text.startsWith("Now I'll") ||
@@ -431,7 +425,7 @@ class ClaudeSessionMonitor {
 
   async updateSession(sessionId, filePath, projectPath) {
     // Check if date has changed and reset if needed
-    const now = Date.now();
+    const _now = Date.now();
     const currentDayStart = this.getTodayStart();
     if (currentDayStart > this.todayStart) {
       // Day has changed, reset counters
@@ -449,7 +443,7 @@ class ClaudeSessionMonitor {
     const isActive = this.isActiveMessage(lastMessage);
 
     const previousSession = this.sessions.get(sessionId);
-    const previousStatus = previousSession ? previousSession.status : null;
+    const _previousStatus = previousSession ? previousSession.status : null;
 
     this.sessions.set(sessionId, {
       status: isActive ? "ACTIVE" : "INACTIVE",
@@ -488,7 +482,7 @@ class ClaudeSessionMonitor {
     this.processedMessages.clear();
 
     // Calculate daily totals from all messages
-    for (const { sessionId, filePath, projectPath } of sessionFiles) {
+    for (const { filePath } of sessionFiles) {
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
 
       for (const messageData of allMessages) {
@@ -508,7 +502,7 @@ class ClaudeSessionMonitor {
     const sessionFiles = this.findAllSessions();
 
     // First pass: calculate daily totals from all messages
-    for (const { sessionId, filePath, projectPath } of sessionFiles) {
+    for (const { filePath } of sessionFiles) {
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
 
       for (const messageData of allMessages) {
@@ -557,19 +551,18 @@ class ClaudeSessionMonitor {
             if (this.isShuttingDown) break;
 
             if (
-              event.filename &&
-              event.filename.endsWith(".jsonl") &&
+              event.filename?.endsWith(".jsonl") &&
               this.isUuidFilename(path.basename(event.filename))
             ) {
               const fullPath = path.join(dirPath, event.filename);
               await this.handleFileChange(fullPath);
             }
           }
-        } catch (error) {
+        } catch (_error) {
           // Ignore errors
         }
       })();
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors
     }
   }
@@ -583,7 +576,7 @@ class ClaudeSessionMonitor {
       const projectPath = path.basename(path.dirname(filePath));
 
       await this.updateSession(sessionId, filePath, projectPath);
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors
     }
   }
@@ -614,7 +607,7 @@ const saveSettings = async settings => {
       await mkdir(configDir, { recursive: true });
     }
     await writeFile(configPath, JSON.stringify(settings, null, 2));
-  } catch (error) {
+  } catch (_error) {
     // Silently fail if we can't save settings
   }
 };
@@ -628,7 +621,7 @@ const loadSettings = async () => {
   try {
     const content = await readFile(configPath, "utf-8");
     return JSON.parse(content);
-  } catch (error) {
+  } catch (_error) {
     return {};
   }
 };
@@ -678,7 +671,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const [activeSessions, setActiveSessions] = useState(0);
   const [todayCost, setTodayCost] = useState(0);
   const [showChatInput, setShowChatInput] = useState(false);
-  const [eventsChannel, setEventsChannel] = useState(null);
+  const [_eventsChannel, setEventsChannel] = useState(null);
   const [username, setUsername] = useState(os.userInfo().username);
   const [settings, setSettings] = useState({});
   const [exitWarning, setExitWarning] = useState({
@@ -728,7 +721,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
               setMessages(prev => [...prev, newMessage]);
             }
           },
-          error: err => {
+          error: _err => {
             // Silently handle subscription errors
           },
         });
@@ -736,7 +729,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         subscriptionCleanup = () => {
           subscription.unsubscribe();
         };
-      } catch (error) {
+      } catch (_error) {
         // Show channel setup error in footer
         setShowNetworkError(true);
         setFooterMessage("Failed to connect to chat server");
@@ -771,7 +764,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         clearTimeout(exitWarning.timer);
       }
     };
-  }, [monitor, exit]);
+  }, [monitor, exit, exitWarning.timer]);
 
   // Manage chat input visibility - only on isHidden transitions
   useEffect(() => {
@@ -785,10 +778,10 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       }
       // If input has content, keep it visible (don't change showChatInput)
     }
-  }, [isHidden]); // Only depend on isHidden, not inputValue
+  }, [isHidden, inputValue.trim]); // Only depend on isHidden, not inputValue
 
   useEffect(() => {
-    let termHeight;
+    let termHeight: number;
     if (chatInputRef.current) {
       const chatInputDims = measureElement(chatInputRef.current);
       termHeight = stdout.rows - chatInputDims.height - 1;
@@ -885,7 +878,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         // Publish to AWS Events
         await events.post("/default/public", messageData, auth);
         setInputValue("");
-      } catch (error) {
+      } catch (_error) {
         // Don't clear input on network error
         setShowNetworkError(true);
         setFooterMessage(""); // Clear any custom message for standard network error
@@ -938,7 +931,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const renderUsername = username => {
     const susIndicator = " ඞ sus ඞ";
     if (username.includes(susIndicator)) {
-      const [baseUsername, ...rest] = username.split(susIndicator);
+      const [baseUsername, ..._rest] = username.split(susIndicator);
       return (
         <>
           <Text bold color={getUserColor(baseUsername)}>
@@ -960,7 +953,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       return <VibeChatLogo bannerText={bannerText} />;
     }
 
-    const userColor = getUserColor(msg.user);
+    const _userColor = getUserColor(msg.user);
 
     return (
       <Box>
@@ -1082,7 +1075,7 @@ async function main() {
 
     try {
       monitor.stop();
-    } catch (error) {
+    } catch (_error) {
       // Ignore errors during shutdown
     }
 
