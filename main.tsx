@@ -10,7 +10,90 @@ import {
   useStdout,
   measureElement,
 } from "ink";
-import TextInput from "ink-text-input";
+import chalk from "chalk";
+
+const TextInput = ({ value: originalValue = '', placeholder = '', focus = true, onChange, onSubmit, ...props }) => {
+  const [state, setState] = useState({
+    cursorOffset: originalValue.length,
+    cursorWidth: 0
+  });
+  
+  const { cursorOffset } = state;
+
+  useEffect(() => {
+    setState(previousState => {
+      if (!focus) return previousState;
+      const newValue = originalValue || '';
+      if (previousState.cursorOffset > newValue.length - 1) {
+        return { cursorOffset: newValue.length, cursorWidth: 0 };
+      }
+      return previousState;
+    });
+  }, [originalValue, focus]);
+
+  useInput((input, key) => {
+    if (key.upArrow || key.downArrow || (key.ctrl && input === 'c') || key.tab || (key.shift && key.tab)) {
+      return;
+    }
+    
+    if (key.return) {
+      if (onSubmit) onSubmit(originalValue);
+      return;
+    }
+
+    let nextCursorOffset = cursorOffset;
+    let nextValue = originalValue;
+
+    if (key.leftArrow) {
+      nextCursorOffset--;
+    } else if (key.rightArrow) {
+      nextCursorOffset++;
+    } else if (key.backspace || key.delete) {
+      if (cursorOffset > 0) {
+        nextValue = originalValue.slice(0, cursorOffset - 1) + originalValue.slice(cursorOffset);
+        nextCursorOffset--;
+      }
+    } else if (key.ctrl && input === 'w') {
+      const trimmed = originalValue.trimEnd();
+      const lastSpaceIndex = trimmed.lastIndexOf(' ');
+      nextValue = lastSpaceIndex === -1 ? '' : originalValue.substring(0, lastSpaceIndex + 1);
+      nextCursorOffset = nextValue.length;
+    } else {
+      nextValue = originalValue.slice(0, cursorOffset) + input + originalValue.slice(cursorOffset);
+      nextCursorOffset += input.length;
+    }
+
+    if (nextCursorOffset < 0) nextCursorOffset = 0;
+    if (nextCursorOffset > nextValue.length) nextCursorOffset = nextValue.length;
+
+    setState({ cursorOffset: nextCursorOffset, cursorWidth: 0 });
+    if (nextValue !== originalValue) onChange(nextValue);
+  }, { isActive: focus });
+
+  let renderedValue = originalValue;
+  let renderedPlaceholder = placeholder ? chalk.grey(placeholder) : undefined;
+  
+  if (focus) {
+    if (originalValue.length === 0) {
+      renderedPlaceholder = placeholder.length > 0 
+        ? chalk.inverse(placeholder[0]) + chalk.grey(placeholder.slice(1))
+        : chalk.inverse(' ');
+      renderedValue = chalk.inverse(' ');
+    } else {
+      renderedValue = '';
+      let i = 0;
+      for (const char of originalValue) {
+        renderedValue += i === cursorOffset ? chalk.inverse(char) : char;
+        i++;
+      }
+      if (cursorOffset === originalValue.length) {
+        renderedValue += chalk.inverse(' ');
+      }
+    }
+  }
+  
+  return <Text>{originalValue.length > 0 ? renderedValue : renderedPlaceholder}</Text>;
+};
 import { readFile, watch, writeFile, mkdir } from "node:fs/promises";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
