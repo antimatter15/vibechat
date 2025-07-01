@@ -19,7 +19,7 @@ const TextInput = ({
   const { cursorOffset } = state;
 
   useEffect(() => {
-    setState((previousState) => {
+    setState(previousState => {
       if (!focus) return previousState;
       const newValue = originalValue || "";
       if (previousState.cursorOffset > newValue.length - 1) {
@@ -215,8 +215,8 @@ class ClaudeSessionMonitor {
     if (envPaths) {
       const envPathList = envPaths
         .split(",")
-        .map((p) => p.trim())
-        .filter((p) => p);
+        .map(p => p.trim())
+        .filter(p => p);
       for (const envPath of envPathList) {
         if (existsSync(path.join(envPath, "projects"))) {
           paths.push(envPath);
@@ -286,7 +286,7 @@ class ClaudeSessionMonitor {
       const lines = content
         .trim()
         .split("\n")
-        .filter((line) => line.length > 0);
+        .filter(line => line.length > 0);
 
       if (lines.length === 0) return null;
 
@@ -311,7 +311,7 @@ class ClaudeSessionMonitor {
       const lines = content
         .trim()
         .split("\n")
-        .filter((line) => line.length > 0);
+        .filter(line => line.length > 0);
 
       const messages = [];
       for (const line of lines) {
@@ -346,12 +346,12 @@ class ClaudeSessionMonitor {
 
     if (message.role === "assistant" && message.type === "message") {
       const hasToolCalls =
-        message.content && message.content.some((item) => item.type === "tool_use");
+        message.content && message.content.some(item => item.type === "tool_use");
 
       if (hasToolCalls) return true;
 
       // Check if assistant message contains action phrases
-      const textContent = message.content && message.content.find((item) => item.type === "text");
+      const textContent = message.content && message.content.find(item => item.type === "text");
       if (textContent && textContent.text) {
         const text = textContent.text.trim();
         if (
@@ -476,8 +476,7 @@ class ClaudeSessionMonitor {
   }
 
   getActiveSessions() {
-    return Array.from(this.sessions.values()).filter((session) => session.status === "ACTIVE")
-      .length;
+    return Array.from(this.sessions.values()).filter(session => session.status === "ACTIVE").length;
   }
 
   async recalculateDailyTotals() {
@@ -605,7 +604,7 @@ const getConfigPath = () => {
   return null;
 };
 
-const saveSettings = async (settings) => {
+const saveSettings = async settings => {
   const configPath = getConfigPath();
   if (!configPath) return;
 
@@ -715,7 +714,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         setEventsChannel(channel);
 
         const subscription = channel.subscribe({
-          next: (data) => {
+          next: data => {
             // Handle incoming messages - data is nested in event property
             const messageData = data.event || data;
             if (messageData.type === "message" && messageData.user && messageData.text) {
@@ -726,10 +725,10 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
                 text: messageData.text,
                 timestamp: messageData.timestamp || new Date().toLocaleTimeString(),
               };
-              setMessages((prev) => [...prev, newMessage]);
+              setMessages(prev => [...prev, newMessage]);
             }
           },
-          error: (err) => {
+          error: err => {
             // Silently handle subscription errors
           },
         });
@@ -749,14 +748,14 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     };
 
     // Set up monitor callback
-    monitor.onUpdate = (stats) => {
+    monitor.onUpdate = stats => {
       setActiveSessions(stats.activeSessions);
       setTodayCost(stats.todayCost);
       setIsHidden(CHAT_DEV_MODE ? false : stats.activeSessions === 0);
     };
 
     // Start monitoring and events
-    monitor.start().catch((error) => {
+    monitor.start().catch(error => {
       console.error("Failed to start monitor:", error.message);
       exit();
     });
@@ -804,12 +803,12 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       if (messageDims.height >= termHeight) {
         const numOverflow = Math.max(1, messages.length - termHeight);
         setMessages(messages.slice(numOverflow));
-        setStaticMessages((msgs) => [...msgs, ...messages.slice(0, numOverflow)]);
+        setStaticMessages(msgs => [...msgs, ...messages.slice(0, numOverflow)]);
       }
     }
   });
 
-  const handleExitKey = (keyType) => {
+  const handleExitKey = keyType => {
     if (exitWarning.timer) {
       if (exitWarning.type === keyType) {
         // Same key pressed twice within 1.5 seconds - exit the whole process
@@ -921,7 +920,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     setMessages(initialMessages);
   }, [announceText]);
 
-  const getUserColor = (username) => {
+  const getUserColor = username => {
     // Special color for announcement messages
     if (username === "announcements") {
       return "yellow";
@@ -936,7 +935,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const renderUsername = (username) => {
+  const renderUsername = username => {
     const susIndicator = " ඞ sus ඞ";
     if (username.includes(susIndicator)) {
       const [baseUsername, ...rest] = username.split(susIndicator);
@@ -956,7 +955,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     );
   };
 
-  const renderMessage = (msg) => {
+  const renderMessage = msg => {
     if (msg.isBanner) {
       return <VibeChatLogo bannerText={bannerText} />;
     }
@@ -981,9 +980,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 
   return (
     <Box flexDirection="column">
-      <Static items={staticMessages}>
-        {(msg) => <Box key={msg.id}>{renderMessage(msg)}</Box>}
-      </Static>
+      <Static items={staticMessages}>{msg => <Box key={msg.id}>{renderMessage(msg)}</Box>}</Static>
 
       {isHidden ? (
         <Box
@@ -1017,7 +1014,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         </Box>
       ) : (
         <Box ref={messagesRef} flexDirection="column">
-          {messages.map((msg) => (
+          {messages.map(msg => (
             <Box key={msg.id}>{renderMessage(msg)}</Box>
           ))}
         </Box>
@@ -1099,7 +1096,7 @@ async function main() {
   });
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error("Failed to start vibechat:", error.message);
   process.exit(1);
 });
