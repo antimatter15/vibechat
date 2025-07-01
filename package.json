@@ -22,10 +22,9 @@
   "author": "antimatter15",
   "license": "MIT",
   "dependencies": {
-    "ink": "^4.4.1",
-    "ink-text-input": "^5.0.1",
-    "react": "^18.2.0",
     "aws-amplify": "^6.0.0",
+    "ink": "^4.4.1",
+    "react": "^18.2.0",
     "semver": "^7.6.0"
   },
   "devDependencies": {
