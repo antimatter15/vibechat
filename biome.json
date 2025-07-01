@@ -26,7 +26,8 @@
       "quoteStyle": "double",
       "arrowParentheses": "asNeeded",
       "trailingCommas": "all"
-    }
+    },
+    "jsxRuntime": "reactClassic"
   },
   "assist": {
     "enabled": true,
