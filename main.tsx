@@ -181,6 +181,16 @@ class ClaudeSessionMonitor {
     this.onUpdate = null; // Callback for UI updates
     this.processedMessages = new Set(); // Track processed message UUIDs
 
+    // Timeout and countdown functionality
+    this.graceTimer = null;
+    this.countdownTimer = null;
+    this.countdownInterval = null;
+    this.countdownSeconds = 10;
+    this.isCountingDown = false;
+    this.lastActiveTime = null;
+    this.wasActiveLastCheck = false;
+    this.onCountdownUpdate = null; // Callback for countdown UI updates
+
     this.claudePaths = this.getClaudePaths();
 
     // Load pricing data if provided
@@ -458,6 +468,9 @@ class ClaudeSessionMonitor {
       this.processedMessages.add(lastMessage.uuid);
     }
 
+    // Check for inactivity and handle timeouts
+    this.checkForInactivity();
+
     // Notify UI of update
     if (this.onUpdate) {
       this.onUpdate({
@@ -580,8 +593,120 @@ class ClaudeSessionMonitor {
     }
   }
 
+  startGraceTimer() {
+    // Clear any existing timers
+    this.clearTimeouts();
+    
+
+    
+    // Start 3-second grace period
+    this.graceTimer = setTimeout(() => {
+      this.startCountdown();
+    }, 3000);
+  }
+
+  startCountdown() {
+    if (this.isShuttingDown) return;
+    
+
+    
+    this.isCountingDown = true;
+    this.countdownSeconds = 10;
+    
+    // Notify UI that countdown started
+    if (this.onCountdownUpdate) {
+      this.onCountdownUpdate({ isCountingDown: true, seconds: this.countdownSeconds });
+    }
+    
+    // Update countdown every second
+    this.countdownInterval = setInterval(() => {
+      this.countdownSeconds--;
+      
+      if (this.onCountdownUpdate) {
+        this.onCountdownUpdate({ isCountingDown: true, seconds: this.countdownSeconds });
+      }
+      
+      if (this.countdownSeconds <= 0) {
+        this.kickUser();
+      }
+    }, 1000);
+    
+    // Final timeout to kick user
+    this.countdownTimer = setTimeout(() => {
+      this.kickUser();
+    }, 10000);
+  }
+
+  clearTimeouts() {
+    if (this.graceTimer) {
+      clearTimeout(this.graceTimer);
+      this.graceTimer = null;
+
+    }
+    
+    if (this.countdownTimer) {
+      clearTimeout(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+    
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+      this.countdownInterval = null;
+    }
+    
+    if (this.isCountingDown) {
+      this.isCountingDown = false;
+
+      if (this.onCountdownUpdate) {
+        this.onCountdownUpdate({ isCountingDown: false, seconds: 0 });
+      }
+    }
+  }
+
+  kickUser() {
+    if (this.isShuttingDown) return;
+    
+
+    
+    this.clearTimeouts();
+    
+    // Force exit the application
+    process.kill(process.pid, "SIGTERM");
+  }
+
+  checkForInactivity() {
+    const activeSessions = this.getActiveSessions();
+    const isCurrentlyActive = activeSessions > 0;
+    
+
+    
+    if (isCurrentlyActive) {
+      // Claude is active, clear any timeouts and update last active time
+      this.lastActiveTime = Date.now();
+      this.clearTimeouts();
+      this.wasActiveLastCheck = true;
+    } else {
+      // Claude is inactive
+      const now = Date.now();
+      
+      // If Claude just became inactive (was active last check, not active now)
+      if (this.wasActiveLastCheck && !this.isCountingDown && !this.graceTimer) {
+        // Claude just became inactive, start grace timer
+        this.startGraceTimer();
+      }
+      
+      this.wasActiveLastCheck = false;
+      
+      // Record time if not set
+      if (!this.lastActiveTime) {
+        this.lastActiveTime = now;
+      }
+    }
+  }
+
   stop() {
     this.isShuttingDown = true;
+    this.clearTimeouts();
   }
 }
 
@@ -678,6 +803,10 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     show: false,
     type: "",
   });
+  const [countdown, setCountdown] = useState({
+    isCountingDown: false,
+    seconds: 0,
+  });
   const { exit } = useApp();
   const { stdout } = useStdout();
 
@@ -744,6 +873,11 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
       setActiveSessions(stats.activeSessions);
       setTodayCost(stats.todayCost);
       setIsHidden(CHAT_DEV_MODE ? false : stats.activeSessions === 0);
+    };
+
+    // Set up countdown callback
+    monitor.onCountdownUpdate = countdownData => {
+      setCountdown(countdownData);
     };
 
     // Start monitoring and events
@@ -1009,6 +1143,16 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
           {messages.map(msg => (
             <Box key={msg.id}>{renderMessage(msg)}</Box>
           ))}
+        </Box>
+      )}
+
+      {countdown.isCountingDown && (
+        <Box justifyContent="center" marginY={1}>
+          <Box borderStyle="round" borderColor="red" paddingX={2} paddingY={1}>
+            <Text color="red" bold>
+              ⚠️  Inactive session detected! You will be kicked out in {countdown.seconds} seconds...
+            </Text>
+          </Box>
         </Box>
       )}
 
