@@ -1,7 +1,14 @@
 #!/usr/bin/env node
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { mkdir, readFile, watch, writeFile } from "node:fs/promises";
+import os, { homedir } from "node:os";
+import path from "node:path";
+import { Amplify } from "aws-amplify";
+import { events } from "aws-amplify/data";
 import chalk from "chalk";
 import { Box, measureElement, render, Static, Text, useApp, useInput, useStdout } from "ink";
 import { useEffect, useRef, useState } from "react";
+import semver from "semver";
 
 const TextInput = ({
   value: originalValue = "",
@@ -103,14 +110,6 @@ const TextInput = ({
 
   return <Text>{originalValue.length > 0 ? renderedValue : renderedPlaceholder}</Text>;
 };
-
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { mkdir, readFile, watch, writeFile } from "node:fs/promises";
-import os, { homedir } from "node:os";
-import path from "node:path";
-import { Amplify } from "aws-amplify";
-import { events } from "aws-amplify/data";
-import semver from "semver";
 
 /**
  * AWS Amplify Events Configuration
