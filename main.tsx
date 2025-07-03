@@ -465,10 +465,11 @@ class ClaudeSessionMonitor {
     });
 
     const { tokens, cost } = this.getTokensAndCostFromMessage(lastMessage);
-    if (tokens > 0 && lastMessage.uuid && !this.processedMessages.has(lastMessage.uuid)) {
+    const messageId = lastMessage.message?.id;
+    if (tokens > 0 && messageId && !this.processedMessages.has(messageId)) {
       this.todayTokens += tokens;
       this.todayCost += cost;
-      this.processedMessages.add(lastMessage.uuid);
+      this.processedMessages.add(messageId);
     }
 
     // Notify UI of update
@@ -494,17 +495,30 @@ class ClaudeSessionMonitor {
     this.processedMessages.clear();
 
     // Calculate daily totals from all messages
+    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
     for (const { filePath } of sessionFiles) {
+      // Only process files modified in the last 24 hours
+      try {
+        const stats = statSync(filePath);
+        if (stats.mtime.getTime() < twentyFourHoursAgo) {
+          continue;
+        }
+      } catch (error) {
+        // Skip files we can't stat
+        continue;
+      }
+      
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
 
       for (const messageData of allMessages) {
         const { tokens, cost } = this.getTokensAndCostFromMessage(messageData);
 
-        // Only count each message once (check UUID to avoid duplicates)
-        if (tokens > 0 && messageData.uuid && !this.processedMessages.has(messageData.uuid)) {
+        // Only count each message once (check message ID to avoid duplicates)
+        const messageId = messageData.message?.id;
+        if (tokens > 0 && messageId && !this.processedMessages.has(messageId)) {
           this.todayTokens += tokens;
           this.todayCost += cost;
-          this.processedMessages.add(messageData.uuid);
+          this.processedMessages.add(messageId);
         }
       }
     }
@@ -514,17 +528,30 @@ class ClaudeSessionMonitor {
     const sessionFiles = this.findAllSessions();
 
     // First pass: calculate daily totals from all messages
+    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
     for (const { filePath } of sessionFiles) {
+      // Only process files modified in the last 24 hours
+      try {
+        const stats = statSync(filePath);
+        if (stats.mtime.getTime() < twentyFourHoursAgo) {
+          continue;
+        }
+      } catch (error) {
+        // Skip files we can't stat
+        continue;
+      }
+      
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
 
       for (const messageData of allMessages) {
         const { tokens, cost } = this.getTokensAndCostFromMessage(messageData);
 
-        // Only count each message once (check UUID to avoid duplicates)
-        if (tokens > 0 && messageData.uuid && !this.processedMessages.has(messageData.uuid)) {
+        // Only count each message once (check message ID to avoid duplicates)
+        const messageId = messageData.message?.id;
+        if (tokens > 0 && messageId && !this.processedMessages.has(messageId)) {
           this.todayTokens += tokens;
           this.todayCost += cost;
-          this.processedMessages.add(messageData.uuid);
+          this.processedMessages.add(messageId);
         }
       }
     }
