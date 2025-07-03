@@ -984,12 +984,29 @@ const ChatUI = ({
       // Handle slash commands (work even when hidden)
       if (trimmedInput.startsWith("/nick ")) {
         const newUsername = trimmedInput.slice(6).trim();
-        if (newUsername) {
+        if (newUsername && newUsername !== username) {
+          const oldUsername = username;
           setUsername(newUsername);
           // Save settings
           const newSettings = { ...settings, username: newUsername };
           setSettings(newSettings);
           saveSettings(newSettings);
+
+          // Broadcast nickname change to everyone
+          const nicknameChangeMessage = {
+            type: "message",
+            id: Date.now(),
+            user: "System",
+            amount: "🔄",
+            text: `${oldUsername} changed their name to ${newUsername}`,
+            timestamp: new Date().toLocaleTimeString(),
+          };
+
+          try {
+            await events.post("/default/public", nicknameChangeMessage, auth);
+          } catch (_error) {
+            // Silently fail if we can't broadcast the nickname change
+          }
         }
         setInputValue("");
         return;
