@@ -10,13 +10,21 @@ import { Box, measureElement, render, Static, Text, useApp, useInput, useStdout 
 import React, { useEffect, useRef, useState } from "react";
 import semver from "semver";
 
+interface TextInputProps {
+  value?: string;
+  placeholder?: string;
+  focus?: boolean;
+  onChange: (value: string) => void;
+  onSubmit?: (value: string) => void;
+}
+
 const TextInput = ({
   value: originalValue = "",
   placeholder = "",
   focus = true,
   onChange,
   onSubmit,
-}) => {
+}: TextInputProps) => {
   const [state, setState] = useState({
     cursorOffset: originalValue.length,
     cursorWidth: 0,
@@ -119,12 +127,13 @@ Amplify.configure({
     Events: {
       endpoint: "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
       region: "us-east-1",
+      defaultAuthMode: "lambda" as const,
     },
   },
 });
 
 const auth = {
-  authMode: "lambda",
+  authMode: "lambda" as const,
   authToken: "i-am-being-nice-not-evil",
 };
 
@@ -170,17 +179,19 @@ async function checkVersionAndGetPricing() {
  * Claude Session Monitor Logic
  */
 class ClaudeSessionMonitor {
-  constructor(pricingData = null) {
-    this.sessions = new Map();
-    this.todayTokens = 0;
-    this.todayCost = 0;
-    this.todayStart = this.getTodayStart();
-    this.watchers = [];
-    this.isShuttingDown = false;
-    this.modelPricing = new Map();
-    this.onUpdate = null; // Callback for UI updates
-    this.processedMessages = new Set(); // Track processed message UUIDs
+  sessions = new Map();
+  todayTokens = 0;
+  todayCost = 0;
+  todayStart: number;
+  watchers: any[] = [];
+  isShuttingDown = false;
+  modelPricing = new Map();
+  onUpdate: ((stats: any) => void) | null = null; // Callback for UI updates
+  processedMessages = new Set(); // Track processed message UUIDs
+  claudePaths: string[];
 
+  constructor(pricingData: any = null) {
+    this.todayStart = this.getTodayStart();
     this.claudePaths = this.getClaudePaths();
 
     // Load pricing data if provided
@@ -197,13 +208,15 @@ class ClaudeSessionMonitor {
     return today.getTime();
   }
 
-  loadPricingData(pricingData) {
+  loadPricingData(pricingData: any) {
     try {
       for (const [modelName, pricing] of Object.entries(pricingData)) {
         this.modelPricing.set(modelName, pricing);
       }
     } catch (error) {
-      console.warn(`Could not load pricing data: ${error.message}`);
+      console.warn(
+        `Could not load pricing data: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -213,8 +226,8 @@ class ClaudeSessionMonitor {
     if (envPaths) {
       const envPathList = envPaths
         .split(",")
-        .map(p => p.trim())
-        .filter(p => p);
+        .map((p: string) => p.trim())
+        .filter((p: string) => p);
       for (const envPath of envPathList) {
         if (existsSync(path.join(envPath, "projects"))) {
           paths.push(envPath);
@@ -233,7 +246,7 @@ class ClaudeSessionMonitor {
     return paths;
   }
 
-  isUuidFilename(filename) {
+  isUuidFilename(filename: string) {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(filename);
   }
 
@@ -278,13 +291,13 @@ class ClaudeSessionMonitor {
     return sessionFiles;
   }
 
-  async parseLastMessage(filePath) {
+  async parseLastMessage(filePath: string) {
     try {
       const content = await readFile(filePath, "utf-8");
       const lines = content
         .trim()
         .split("\n")
-        .filter(line => line.length > 0);
+        .filter((line: string) => line.length > 0);
 
       if (lines.length === 0) return null;
 
@@ -301,13 +314,13 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async parseAllMessagesForDailyCount(filePath) {
+  async parseAllMessagesForDailyCount(filePath: string) {
     try {
       const content = await readFile(filePath, "utf-8");
       const lines = content
         .trim()
         .split("\n")
-        .filter(line => line.length > 0);
+        .filter((line: string) => line.length > 0);
 
       const messages = [];
       for (const line of lines) {
@@ -328,7 +341,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  isActiveMessage(messageData) {
+  isActiveMessage(messageData: any) {
     if (!messageData || !messageData.message) return false;
 
     const message = messageData.message;
@@ -339,12 +352,12 @@ class ClaudeSessionMonitor {
     if (timestamp < fiveMinutesAgo) return false;
 
     if (message.role === "assistant" && message.type === "message") {
-      const hasToolCalls = message.content?.some(item => item.type === "tool_use");
+      const hasToolCalls = message.content?.some((item: any) => item.type === "tool_use");
 
       if (hasToolCalls) return true;
 
       // Check if assistant message contains action phrases
-      const textContent = message.content?.find(item => item.type === "text");
+      const textContent = message.content?.find((item: any) => item.type === "text");
       if (textContent?.text) {
         const text = textContent.text.trim();
         if (
@@ -366,7 +379,7 @@ class ClaudeSessionMonitor {
     return true;
   }
 
-  getTokensAndCostFromMessage(messageData) {
+  getTokensAndCostFromMessage(messageData: any) {
     if (!messageData || !messageData.message || !messageData.message.usage) {
       return { tokens: 0, cost: 0 };
     }
@@ -400,7 +413,7 @@ class ClaudeSessionMonitor {
     return { tokens: totalTokens, cost };
   }
 
-  async updateSessionState(sessionId, filePath, projectPath) {
+  async updateSessionState(sessionId: string, filePath: string, projectPath: string) {
     const lastMessage = await this.parseLastMessage(filePath);
     if (!lastMessage) return;
     const isActive = this.isActiveMessage(lastMessage);
@@ -422,7 +435,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async updateSession(sessionId, filePath, projectPath) {
+  async updateSession(sessionId: string, filePath: string, projectPath: string) {
     // Check if date has changed and reset if needed
     const _now = Date.now();
     const currentDayStart = this.getTodayStart();
@@ -537,7 +550,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async watchDirectory(dirPath) {
+  async watchDirectory(dirPath: string) {
     if (!existsSync(dirPath) || this.isShuttingDown) return;
 
     try {
@@ -566,7 +579,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async handleFileChange(filePath) {
+  async handleFileChange(filePath: string) {
     if (!existsSync(filePath) || this.isShuttingDown) return;
 
     try {
@@ -596,7 +609,7 @@ const getConfigPath = () => {
   return null;
 };
 
-const saveSettings = async settings => {
+const saveSettings = async (settings: any) => {
   const configPath = getConfigPath();
   if (!configPath) return;
 
@@ -628,7 +641,7 @@ const loadSettings = async () => {
 /**
  * VIBECHAT Logo Component
  */
-const VibeChatLogo = ({ bannerText }) => (
+const VibeChatLogo = ({ bannerText }: { bannerText?: string }) => (
   <Box marginTop={2} marginBottom={2} flexDirection="column" alignItems="center">
     <Text color="magenta" bold>
       {`██╗   ██╗██╗██████╗ ███████╗\n`}
@@ -658,9 +671,17 @@ const CHAT_DEV_MODE = import.meta.url.endsWith(".tsx") && process.env.VIBECHAT_D
 /**
  * Chat UI Component
  */
-const ChatUI = ({ monitor, bannerText, announceText }) => {
-  const [messages, setMessages] = useState([]);
-  const [staticMessages, setStaticMessages] = useState([]);
+const ChatUI = ({
+  monitor,
+  bannerText,
+  announceText,
+}: {
+  monitor: ClaudeSessionMonitor;
+  bannerText?: string;
+  announceText?: string;
+}) => {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [staticMessages, setStaticMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isHidden, setIsHidden] = useState(!CHAT_DEV_MODE);
   const [terminalHeight, setTerminalHeight] = useState(24);
@@ -670,10 +691,14 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const [activeSessions, setActiveSessions] = useState(0);
   const [todayCost, setTodayCost] = useState(0);
   const [showChatInput, setShowChatInput] = useState(false);
-  const [_eventsChannel, setEventsChannel] = useState(null);
+  const [_eventsChannel, setEventsChannel] = useState<any>(null);
   const [username, setUsername] = useState(os.userInfo().username);
   const [settings, setSettings] = useState({});
-  const [exitWarning, setExitWarning] = useState({
+  const [exitWarning, setExitWarning] = useState<{
+    timer: NodeJS.Timeout | null;
+    show: boolean;
+    type: string;
+  }>({
     timer: null,
     show: false,
     type: "",
@@ -681,8 +706,8 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   const { exit } = useApp();
   const { stdout } = useStdout();
 
-  const chatInputRef = useRef();
-  const messagesRef = useRef();
+  const chatInputRef = useRef<any>(null);
+  const messagesRef = useRef<any>(null);
 
   // Load settings on mount
   useEffect(() => {
@@ -697,7 +722,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   }, []);
 
   useEffect(() => {
-    let subscriptionCleanup = null;
+    let subscriptionCleanup: (() => void) | null = null;
 
     // Set up AWS Events channel
     const setupEventsChannel = async () => {
@@ -706,7 +731,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         setEventsChannel(channel);
 
         const subscription = channel.subscribe({
-          next: data => {
+          next: (data: any) => {
             // Handle incoming messages - data is nested in event property
             const messageData = data.event || data;
             if (messageData.type === "message" && messageData.user && messageData.text) {
@@ -717,10 +742,10 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
                 text: messageData.text,
                 timestamp: messageData.timestamp || new Date().toLocaleTimeString(),
               };
-              setMessages(prev => [...prev, newMessage]);
+              setMessages((prev: any) => [...prev, newMessage]);
             }
           },
-          error: _err => {
+          error: (_err: any) => {
             // Silently handle subscription errors
           },
         });
@@ -740,14 +765,14 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     };
 
     // Set up monitor callback
-    monitor.onUpdate = stats => {
+    monitor.onUpdate = (stats: any) => {
       setActiveSessions(stats.activeSessions);
       setTodayCost(stats.todayCost);
       setIsHidden(CHAT_DEV_MODE ? false : stats.activeSessions === 0);
     };
 
     // Start monitoring and events
-    monitor.start().catch(error => {
+    monitor.start().catch((error: any) => {
       console.error("Failed to start monitor:", error.message);
       exit();
     });
@@ -782,8 +807,12 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
   useEffect(() => {
     let termHeight: number;
     if (chatInputRef.current) {
-      const chatInputDims = measureElement(chatInputRef.current);
-      termHeight = stdout.rows - chatInputDims.height - 1;
+      try {
+        const chatInputDims = measureElement(chatInputRef.current as any);
+        termHeight = stdout.rows - chatInputDims.height - 1;
+      } catch {
+        termHeight = stdout.rows - 1;
+      }
     } else {
       // When chat input is hidden, use full terminal height minus 1
       termHeight = stdout.rows - 1;
@@ -791,16 +820,20 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     setTerminalHeight(termHeight);
 
     if (messagesRef.current) {
-      const messageDims = measureElement(messagesRef.current);
-      if (messageDims.height >= termHeight) {
-        const numOverflow = Math.max(1, messages.length - termHeight);
-        setMessages(messages.slice(numOverflow));
-        setStaticMessages(msgs => [...msgs, ...messages.slice(0, numOverflow)]);
+      try {
+        const messageDims = measureElement(messagesRef.current as any);
+        if (messageDims.height >= termHeight) {
+          const numOverflow = Math.max(1, messages.length - termHeight);
+          setMessages(messages.slice(numOverflow));
+          setStaticMessages((msgs: any) => [...msgs, ...messages.slice(0, numOverflow)]);
+        }
+      } catch {
+        // Ignore measureElement errors
       }
     }
   });
 
-  const handleExitKey = keyType => {
+  const handleExitKey = (keyType: string) => {
     if (exitWarning.timer) {
       if (exitWarning.type === keyType) {
         // Same key pressed twice within 1.5 seconds - exit the whole process
@@ -912,7 +945,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     setMessages(initialMessages);
   }, [announceText]);
 
-  const getUserColor = username => {
+  const getUserColor = (username: string) => {
     // Special color for announcement messages
     if (username === "announcements") {
       return "yellow";
@@ -927,7 +960,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const renderUsername = username => {
+  const renderUsername = (username: string) => {
     const susIndicator = " ඞ sus ඞ";
     if (username.includes(susIndicator)) {
       const [baseUsername, ..._rest] = username.split(susIndicator);
@@ -947,7 +980,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
     );
   };
 
-  const renderMessage = msg => {
+  const renderMessage = (msg: any) => {
     if (msg.isBanner) {
       return <VibeChatLogo bannerText={bannerText} />;
     }
@@ -972,7 +1005,9 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 
   return (
     <Box flexDirection="column">
-      <Static items={staticMessages}>{msg => <Box key={msg.id}>{renderMessage(msg)}</Box>}</Static>
+      <Static items={staticMessages}>
+        {(msg: any) => <Box key={msg.id}>{renderMessage(msg)}</Box>}
+      </Static>
 
       {isHidden ? (
         <Box
@@ -993,11 +1028,11 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
               paddingY={1}
               flexDirection="column"
             >
-              <Text wrap="wrap" textAlign="center">
+              <Text wrap="wrap">
                 Claude isn't clauding right now. Go tell him to do something to access the chatroom.
               </Text>
               <Box marginTop={1}>
-                <Text color="gray" dimColor textAlign="center">
+                <Text color="gray" dimColor>
                   Today's spend: ${todayCost.toFixed(2)}
                 </Text>
               </Box>
@@ -1006,7 +1041,7 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
         </Box>
       ) : (
         <Box ref={messagesRef} flexDirection="column">
-          {messages.map(msg => (
+          {messages.map((msg: any) => (
             <Box key={msg.id}>{renderMessage(msg)}</Box>
           ))}
         </Box>
@@ -1062,7 +1097,10 @@ const ChatUI = ({ monitor, bannerText, announceText }) => {
 // Main app
 async function main() {
   // Check version and get pricing data
-  const { pricing, banner, announce } = await checkVersionAndGetPricing();
+  const result = await checkVersionAndGetPricing();
+  const pricing = result?.pricing;
+  const banner = result?.banner;
+  const announce = result?.announce;
 
   const monitor = new ClaudeSessionMonitor(pricing);
   let isExiting = false;
