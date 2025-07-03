@@ -6,7 +6,16 @@ import path from "node:path";
 import { Amplify } from "aws-amplify";
 import { events } from "aws-amplify/data";
 import chalk from "chalk";
-import { Box, measureElement, render, Static, Text, useApp, useInput, useStdout } from "ink";
+import {
+  Box,
+  measureElement,
+  render,
+  Static,
+  Text,
+  useApp,
+  useInput,
+  useStdout,
+} from "ink";
 import React, { useEffect, useRef, useState } from "react";
 import semver from "semver";
 
@@ -33,7 +42,7 @@ const TextInput = ({
   const { cursorOffset } = state;
 
   useEffect(() => {
-    setState(previousState => {
+    setState((previousState) => {
       if (!focus) return previousState;
       const newValue = originalValue || "";
       if (previousState.cursorOffset > newValue.length - 1) {
@@ -70,22 +79,30 @@ const TextInput = ({
         nextCursorOffset++;
       } else if (key.backspace || key.delete) {
         if (cursorOffset > 0) {
-          nextValue = originalValue.slice(0, cursorOffset - 1) + originalValue.slice(cursorOffset);
+          nextValue =
+            originalValue.slice(0, cursorOffset - 1) +
+            originalValue.slice(cursorOffset);
           nextCursorOffset--;
         }
       } else if (key.ctrl && input === "w") {
         const trimmed = originalValue.trimEnd();
         const lastSpaceIndex = trimmed.lastIndexOf(" ");
-        nextValue = lastSpaceIndex === -1 ? "" : originalValue.substring(0, lastSpaceIndex + 1);
+        nextValue =
+          lastSpaceIndex === -1
+            ? ""
+            : originalValue.substring(0, lastSpaceIndex + 1);
         nextCursorOffset = nextValue.length;
       } else {
         nextValue =
-          originalValue.slice(0, cursorOffset) + input + originalValue.slice(cursorOffset);
+          originalValue.slice(0, cursorOffset) +
+          input +
+          originalValue.slice(cursorOffset);
         nextCursorOffset += input.length;
       }
 
       if (nextCursorOffset < 0) nextCursorOffset = 0;
-      if (nextCursorOffset > nextValue.length) nextCursorOffset = nextValue.length;
+      if (nextCursorOffset > nextValue.length)
+        nextCursorOffset = nextValue.length;
 
       setState({ cursorOffset: nextCursorOffset, cursorWidth: 0 });
       if (nextValue !== originalValue) onChange(nextValue);
@@ -116,7 +133,11 @@ const TextInput = ({
     }
   }
 
-  return <Text>{originalValue.length > 0 ? renderedValue : renderedPlaceholder}</Text>;
+  return (
+    <Text>
+      {originalValue.length > 0 ? renderedValue : renderedPlaceholder}
+    </Text>
+  );
 };
 
 /**
@@ -125,7 +146,8 @@ const TextInput = ({
 Amplify.configure({
   API: {
     Events: {
-      endpoint: "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
+      endpoint:
+        "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
       region: "us-east-1",
       defaultAuthMode: "lambda" as const,
     },
@@ -170,7 +192,9 @@ async function checkVersionAndGetPricing() {
     };
   } catch (_error) {
     // Network error - unable to connect to server
-    console.log("Unable to connect to vibechat server. Please check your internet connection.");
+    console.log(
+      "Unable to connect to vibechat server. Please check your internet connection.",
+    );
     process.exit(1);
   }
 }
@@ -235,7 +259,10 @@ class ClaudeSessionMonitor {
       }
     }
 
-    const defaultPaths = [path.join(homedir(), ".config/claude"), path.join(homedir(), ".claude")];
+    const defaultPaths = [
+      path.join(homedir(), ".config/claude"),
+      path.join(homedir(), ".claude"),
+    ];
 
     for (const defaultPath of defaultPaths) {
       if (existsSync(path.join(defaultPath, "projects"))) {
@@ -247,7 +274,9 @@ class ClaudeSessionMonitor {
   }
 
   isUuidFilename(filename: string) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(filename);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(
+      filename,
+    );
   }
 
   findAllSessions() {
@@ -352,12 +381,16 @@ class ClaudeSessionMonitor {
     if (timestamp < fiveMinutesAgo) return false;
 
     if (message.role === "assistant" && message.type === "message") {
-      const hasToolCalls = message.content?.some((item: any) => item.type === "tool_use");
+      const hasToolCalls = message.content?.some(
+        (item: any) => item.type === "tool_use",
+      );
 
       if (hasToolCalls) return true;
 
       // Check if assistant message contains action phrases
-      const textContent = message.content?.find((item: any) => item.type === "text");
+      const textContent = message.content?.find(
+        (item: any) => item.type === "text",
+      );
       if (textContent?.text) {
         const text = textContent.text.trim();
         if (
@@ -397,7 +430,8 @@ class ClaudeSessionMonitor {
       cacheRead: usage.cache_read_input_tokens || 0,
     };
 
-    const totalTokens = tokens.input + tokens.output + tokens.cacheCreation + tokens.cacheRead;
+    const totalTokens =
+      tokens.input + tokens.output + tokens.cacheCreation + tokens.cacheRead;
 
     let cost = 0;
     if (model && this.modelPricing.has(model)) {
@@ -413,7 +447,11 @@ class ClaudeSessionMonitor {
     return { tokens: totalTokens, cost };
   }
 
-  async updateSessionState(sessionId: string, filePath: string, projectPath: string) {
+  async updateSessionState(
+    sessionId: string,
+    filePath: string,
+    projectPath: string,
+  ) {
     const lastMessage = await this.parseLastMessage(filePath);
     if (!lastMessage) return;
     const isActive = this.isActiveMessage(lastMessage);
@@ -435,7 +473,11 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async updateSession(sessionId: string, filePath: string, projectPath: string) {
+  async updateSession(
+    sessionId: string,
+    filePath: string,
+    projectPath: string,
+  ) {
     // Check if date has changed and reset if needed
     const _now = Date.now();
     const currentDayStart = this.getTodayStart();
@@ -483,7 +525,9 @@ class ClaudeSessionMonitor {
   }
 
   getActiveSessions() {
-    return Array.from(this.sessions.values()).filter(session => session.status === "ACTIVE").length;
+    return Array.from(this.sessions.values()).filter(
+      (session) => session.status === "ACTIVE",
+    ).length;
   }
 
   async recalculateDailyTotals() {
@@ -495,7 +539,7 @@ class ClaudeSessionMonitor {
     this.processedMessages.clear();
 
     // Calculate daily totals from all messages
-    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
     for (const { filePath } of sessionFiles) {
       // Only process files modified in the last 24 hours
       try {
@@ -507,7 +551,7 @@ class ClaudeSessionMonitor {
         // Skip files we can't stat
         continue;
       }
-      
+
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
 
       for (const messageData of allMessages) {
@@ -528,7 +572,7 @@ class ClaudeSessionMonitor {
     const sessionFiles = this.findAllSessions();
 
     // First pass: calculate daily totals from all messages
-    const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
     for (const { filePath } of sessionFiles) {
       // Only process files modified in the last 24 hours
       try {
@@ -540,7 +584,7 @@ class ClaudeSessionMonitor {
         // Skip files we can't stat
         continue;
       }
-      
+
       const allMessages = await this.parseAllMessagesForDailyCount(filePath);
 
       for (const messageData of allMessages) {
@@ -669,7 +713,12 @@ const loadSettings = async () => {
  * VIBECHAT Logo Component
  */
 const VibeChatLogo = ({ bannerText }: { bannerText?: string }) => (
-  <Box marginTop={2} marginBottom={2} flexDirection="column" alignItems="center">
+  <Box
+    marginTop={2}
+    marginBottom={2}
+    flexDirection="column"
+    alignItems="center"
+  >
     <Text color="magenta" bold>
       {`██╗   ██╗██╗██████╗ ███████╗\n`}
       {`██║   ██║██║██╔══██╗██╔════╝\n`}
@@ -693,7 +742,38 @@ const VibeChatLogo = ({ bannerText }: { bannerText?: string }) => (
   </Box>
 );
 
-const CHAT_DEV_MODE = import.meta.url.endsWith(".tsx") && process.env.VIBECHAT_DEV === "true";
+const ClaudeMessages = [
+  "Claude isn't Clauding right now. Go tell him to do something to access the chatroom.",
+  "No Claude, no chat! Boot up Claude Code to get this conversation started.",
+  "Claude is currently in sleep mode. Execute Claude Code to wake up the chatroom!",
+  "Looks like Claude wandered off again. Fire up Claude Code to open the chatroom doors!",
+  "Claude has gone silent! Summon him back with Claude Code to enter the sacred chatroom!",
+  "Idle Claude detected. Maintain active Claude Code session for chatroom entry!",
+  "The chatroom requires active Claude energy. Keep Claude Code clauding to get inside!",
+  "Claude has gone into hibernation mode. Only a working Claude Code can wake the chatroom!",
+  "Claude's gone offline! Keep Claude Code busy to unlock the chatroom access!",
+  "Warning: Claude is slacking off. Put Claude Code to work to enter the chatroom!",
+  "Claude stopped thinking! Get Claude Code processing to open the chatroom!",
+  "No active Claude detected. Keep Claude Code working to join the chatroom!",
+  "Claude went AFK! Get Claude Code clauding to unlock the chatroom doors!",
+  "The chatroom is waiting for Claude! Get Claude Code processing to join the fun!",
+  "The chatroom craves Claude energy! Get Claude Code clauding to get in!",
+  "No Claude brain activity! Get Claude Code thinking to open the chatroom doors!",
+  "Claude is ghosting us! Start Claude Code working to access the chatroom!",
+  "No Claude in sight! Keep Claude Code active to open the chatroom gates!",
+  "No Claude juice detected! Keep Claude Code active to enter the chatroom!",
+  "Claude has powered down! Start Claude Code thinking to unlock the chatroom!",
+];
+
+function ClaudeMessage() {
+  const [index, setIndex] = React.useState(() =>
+    Math.floor(Math.random() * ClaudeMessages.length),
+  );
+  return <Text wrap="wrap">{ClaudeMessages[index]}</Text>;
+}
+
+const CHAT_DEV_MODE =
+  import.meta.url.endsWith(".tsx") && process.env.VIBECHAT_DEV === "true";
 
 /**
  * Chat UI Component
@@ -761,13 +841,18 @@ const ChatUI = ({
           next: (data: any) => {
             // Handle incoming messages - data is nested in event property
             const messageData = data.event || data;
-            if (messageData.type === "message" && messageData.user && messageData.text) {
+            if (
+              messageData.type === "message" &&
+              messageData.user &&
+              messageData.text
+            ) {
               const newMessage = {
                 id: messageData.id || Date.now(),
                 user: messageData.user,
                 amount: messageData.amount || "0x $0.00",
                 text: messageData.text,
-                timestamp: messageData.timestamp || new Date().toLocaleTimeString(),
+                timestamp:
+                  messageData.timestamp || new Date().toLocaleTimeString(),
               };
               setMessages((prev: any) => [...prev, newMessage]);
             }
@@ -852,7 +937,10 @@ const ChatUI = ({
         if (messageDims.height >= termHeight) {
           const numOverflow = Math.max(1, messages.length - termHeight);
           setMessages(messages.slice(numOverflow));
-          setStaticMessages((msgs: any) => [...msgs, ...messages.slice(0, numOverflow)]);
+          setStaticMessages((msgs: any) => [
+            ...msgs,
+            ...messages.slice(0, numOverflow),
+          ]);
         }
       } catch {
         // Ignore measureElement errors
@@ -1055,13 +1143,17 @@ const ChatUI = ({
               paddingY={1}
               flexDirection="column"
             >
-              <Text wrap="wrap">
-                Claude isn't clauding right now. Go tell him to do something to access the chatroom.
-              </Text>
+              <ClaudeMessage />
               <Box marginTop={1}>
-                <Text color="gray" dimColor>
-                  Today's spend: ${todayCost.toFixed(2)}
-                </Text>
+                {exitWarning.show ? (
+                  <Text color="yellow">
+                    Press {exitWarning.type} again to exit
+                  </Text>
+                ) : (
+                  <Text color="gray">
+                    Today's spend: ${todayCost.toFixed(2)}
+                  </Text>
+                )}
               </Box>
             </Box>
           </Box>
@@ -1076,14 +1168,22 @@ const ChatUI = ({
 
       {showChatInput && (
         <Box ref={chatInputRef} flexDirection="column">
-          <Box marginTop={1} borderStyle="round" borderColor="gray" paddingX={1}>
+          <Box
+            marginTop={1}
+            borderStyle="round"
+            borderColor="gray"
+            paddingX={1}
+          >
             <Text bold color={getUserColor(username)}>
               {username}
             </Text>
             {CHAT_DEV_MODE && <Text color="red"> (dev mode — ඞ sus ඞ) </Text>}
             <Text color="gray">
               {" "}
-              (${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} {activeSessions}x):{" "}
+              (${todayCost >= 100
+                ? todayCost.toFixed(0)
+                : todayCost.toFixed(2)}{" "}
+              {activeSessions}x):{" "}
             </Text>
             <TextInput
               value={inputValue}
@@ -1103,13 +1203,16 @@ const ChatUI = ({
                       ? "yellow"
                       : "gray"
               }
-              dimColor={!showDisabledWarning && !showNetworkError && !exitWarning.show}
+              dimColor={
+                !showDisabledWarning && !showNetworkError && !exitWarning.show
+              }
               bold={showDisabledWarning || showNetworkError || exitWarning.show}
             >
               {exitWarning.show
                 ? `Press ${exitWarning.type} again to exit`
                 : showNetworkError
-                  ? footerMessage || "Network error - message not sent. Press Enter to retry"
+                  ? footerMessage ||
+                    "Network error - message not sent. Press Enter to retry"
                   : isHidden
                     ? "Posting disabled until session resumes"
                     : "Use /nick <name> to change username"}
@@ -1148,12 +1251,15 @@ async function main() {
 
   process.on("SIGTERM", shutdown);
 
-  render(<ChatUI monitor={monitor} bannerText={banner} announceText={announce} />, {
-    exitOnCtrlC: false,
-  });
+  render(
+    <ChatUI monitor={monitor} bannerText={banner} announceText={announce} />,
+    {
+      exitOnCtrlC: false,
+    },
+  );
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error("Failed to start vibechat:", error.message);
   process.exit(1);
 });
