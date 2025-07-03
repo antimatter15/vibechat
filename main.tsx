@@ -6,16 +6,7 @@ import path from "node:path";
 import { Amplify } from "aws-amplify";
 import { events } from "aws-amplify/data";
 import chalk from "chalk";
-import {
-  Box,
-  measureElement,
-  render,
-  Static,
-  Text,
-  useApp,
-  useInput,
-  useStdout,
-} from "ink";
+import { Box, measureElement, render, Static, Text, useApp, useInput, useStdout } from "ink";
 import React, { useEffect, useRef, useState } from "react";
 import semver from "semver";
 
@@ -23,6 +14,9 @@ interface TextInputProps {
   value?: string;
   placeholder?: string;
   focus?: boolean;
+  mask?: string;
+  showCursor?: boolean;
+  highlightPastedText?: boolean;
   onChange: (value: string) => void;
   onSubmit?: (value: string) => void;
 }
@@ -31,26 +25,66 @@ const TextInput = ({
   value: originalValue = "",
   placeholder = "",
   focus = true,
+  mask,
+  showCursor = true,
+  highlightPastedText = false,
   onChange,
   onSubmit,
 }: TextInputProps) => {
   const [state, setState] = useState({
-    cursorOffset: originalValue.length,
+    cursorOffset: (originalValue || "").length,
     cursorWidth: 0,
   });
 
-  const { cursorOffset } = state;
+  const { cursorOffset, cursorWidth } = state;
 
   useEffect(() => {
-    setState((previousState) => {
-      if (!focus) return previousState;
-      const newValue = originalValue || "";
-      if (previousState.cursorOffset > newValue.length - 1) {
-        return { cursorOffset: newValue.length, cursorWidth: 0 };
+    setState(previousState => {
+      if (!focus || !showCursor) {
+        return previousState;
       }
+
+      const newValue = originalValue || "";
+
+      if (previousState.cursorOffset > newValue.length - 1) {
+        return {
+          cursorOffset: newValue.length,
+          cursorWidth: 0,
+        };
+      }
+
       return previousState;
     });
-  }, [originalValue, focus]);
+  }, [originalValue, focus, showCursor]);
+
+  const cursorActualWidth = highlightPastedText ? cursorWidth : 0;
+
+  const value = mask ? mask.repeat(originalValue.length) : originalValue;
+  let renderedValue = value;
+  let renderedPlaceholder = placeholder ? chalk.grey(placeholder) : undefined;
+
+  // Fake mouse cursor, because it's too inconvenient to deal with actual cursor and ansi escapes
+  if (showCursor && focus) {
+    renderedPlaceholder =
+      placeholder.length > 0
+        ? chalk.inverse(placeholder[0]) + chalk.grey(placeholder.slice(1))
+        : chalk.inverse(" ");
+
+    renderedValue = value.length > 0 ? "" : chalk.inverse(" ");
+
+    let i = 0;
+
+    for (const char of value) {
+      renderedValue +=
+        i >= cursorOffset - cursorActualWidth && i <= cursorOffset ? chalk.inverse(char) : char;
+
+      i++;
+    }
+
+    if (value.length > 0 && cursorOffset === value.length) {
+      renderedValue += chalk.inverse(" ");
+    }
+  }
 
   useInput(
     (input, key) => {
@@ -58,7 +92,6 @@ const TextInput = ({
         key.upArrow ||
         key.downArrow ||
         (key.ctrl && input === "c") ||
-        (key.ctrl && input === "d") ||
         key.tab ||
         (key.shift && key.tab)
       ) {
@@ -66,76 +99,74 @@ const TextInput = ({
       }
 
       if (key.return) {
-        if (onSubmit) onSubmit(originalValue);
+        if (onSubmit) {
+          onSubmit(originalValue);
+        }
+
         return;
       }
 
       let nextCursorOffset = cursorOffset;
       let nextValue = originalValue;
+      let nextCursorWidth = 0;
 
       if (key.leftArrow) {
-        nextCursorOffset--;
+        if (showCursor) {
+          nextCursorOffset--;
+        }
       } else if (key.rightArrow) {
-        nextCursorOffset++;
+        if (showCursor) {
+          nextCursorOffset++;
+        }
       } else if (key.backspace || key.delete) {
         if (cursorOffset > 0) {
           nextValue =
             originalValue.slice(0, cursorOffset - 1) +
-            originalValue.slice(cursorOffset);
+            originalValue.slice(cursorOffset, originalValue.length);
+
           nextCursorOffset--;
         }
       } else if (key.ctrl && input === "w") {
         const trimmed = originalValue.trimEnd();
         const lastSpaceIndex = trimmed.lastIndexOf(" ");
-        nextValue =
-          lastSpaceIndex === -1
-            ? ""
-            : originalValue.substring(0, lastSpaceIndex + 1);
+        nextValue = lastSpaceIndex === -1 ? "" : originalValue.substring(0, lastSpaceIndex + 1);
         nextCursorOffset = nextValue.length;
       } else {
         nextValue =
           originalValue.slice(0, cursorOffset) +
           input +
-          originalValue.slice(cursorOffset);
+          originalValue.slice(cursorOffset, originalValue.length);
+
         nextCursorOffset += input.length;
+
+        if (input.length > 1) {
+          nextCursorWidth = input.length;
+        }
       }
 
-      if (nextCursorOffset < 0) nextCursorOffset = 0;
-      if (nextCursorOffset > nextValue.length)
-        nextCursorOffset = nextValue.length;
+      if (cursorOffset < 0) {
+        nextCursorOffset = 0;
+      }
 
-      setState({ cursorOffset: nextCursorOffset, cursorWidth: 0 });
-      if (nextValue !== originalValue) onChange(nextValue);
+      if (cursorOffset > originalValue.length) {
+        nextCursorOffset = originalValue.length;
+      }
+
+      setState({
+        cursorOffset: nextCursorOffset,
+        cursorWidth: nextCursorWidth,
+      });
+
+      if (nextValue !== originalValue) {
+        onChange(nextValue);
+      }
     },
     { isActive: focus },
   );
 
-  let renderedValue = originalValue;
-  let renderedPlaceholder = placeholder ? chalk.grey(placeholder) : undefined;
-
-  if (focus) {
-    if (originalValue.length === 0) {
-      renderedPlaceholder =
-        placeholder.length > 0
-          ? chalk.inverse(placeholder[0]) + chalk.grey(placeholder.slice(1))
-          : chalk.inverse(" ");
-      renderedValue = chalk.inverse(" ");
-    } else {
-      renderedValue = "";
-      let i = 0;
-      for (const char of originalValue) {
-        renderedValue += i === cursorOffset ? chalk.inverse(char) : char;
-        i++;
-      }
-      if (cursorOffset === originalValue.length) {
-        renderedValue += chalk.inverse(" ");
-      }
-    }
-  }
-
   return (
     <Text>
-      {originalValue.length > 0 ? renderedValue : renderedPlaceholder}
+      {placeholder ? (value.length > 0 ? renderedValue : renderedPlaceholder) : renderedValue}
     </Text>
   );
 };
@@ -146,8 +177,7 @@ const TextInput = ({
 Amplify.configure({
   API: {
     Events: {
-      endpoint:
-        "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
+      endpoint: "https://o7zdazzaqzdzpgg5lgtyhaccoi.appsync-api.us-east-1.amazonaws.com/event",
       region: "us-east-1",
       defaultAuthMode: "lambda" as const,
     },
@@ -192,9 +222,7 @@ async function checkVersionAndGetPricing() {
     };
   } catch (_error) {
     // Network error - unable to connect to server
-    console.log(
-      "Unable to connect to vibechat server. Please check your internet connection.",
-    );
+    console.log("Unable to connect to vibechat server. Please check your internet connection.");
     process.exit(1);
   }
 }
@@ -259,10 +287,7 @@ class ClaudeSessionMonitor {
       }
     }
 
-    const defaultPaths = [
-      path.join(homedir(), ".config/claude"),
-      path.join(homedir(), ".claude"),
-    ];
+    const defaultPaths = [path.join(homedir(), ".config/claude"), path.join(homedir(), ".claude")];
 
     for (const defaultPath of defaultPaths) {
       if (existsSync(path.join(defaultPath, "projects"))) {
@@ -274,9 +299,7 @@ class ClaudeSessionMonitor {
   }
 
   isUuidFilename(filename: string) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(
-      filename,
-    );
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(filename);
   }
 
   findAllSessions() {
@@ -381,16 +404,12 @@ class ClaudeSessionMonitor {
     if (timestamp < fiveMinutesAgo) return false;
 
     if (message.role === "assistant" && message.type === "message") {
-      const hasToolCalls = message.content?.some(
-        (item: any) => item.type === "tool_use",
-      );
+      const hasToolCalls = message.content?.some((item: any) => item.type === "tool_use");
 
       if (hasToolCalls) return true;
 
       // Check if assistant message contains action phrases
-      const textContent = message.content?.find(
-        (item: any) => item.type === "text",
-      );
+      const textContent = message.content?.find((item: any) => item.type === "text");
       if (textContent?.text) {
         const text = textContent.text.trim();
         if (
@@ -430,8 +449,7 @@ class ClaudeSessionMonitor {
       cacheRead: usage.cache_read_input_tokens || 0,
     };
 
-    const totalTokens =
-      tokens.input + tokens.output + tokens.cacheCreation + tokens.cacheRead;
+    const totalTokens = tokens.input + tokens.output + tokens.cacheCreation + tokens.cacheRead;
 
     let cost = 0;
     if (model && this.modelPricing.has(model)) {
@@ -447,11 +465,7 @@ class ClaudeSessionMonitor {
     return { tokens: totalTokens, cost };
   }
 
-  async updateSessionState(
-    sessionId: string,
-    filePath: string,
-    projectPath: string,
-  ) {
+  async updateSessionState(sessionId: string, filePath: string, projectPath: string) {
     const lastMessage = await this.parseLastMessage(filePath);
     if (!lastMessage) return;
     const isActive = this.isActiveMessage(lastMessage);
@@ -473,11 +487,7 @@ class ClaudeSessionMonitor {
     }
   }
 
-  async updateSession(
-    sessionId: string,
-    filePath: string,
-    projectPath: string,
-  ) {
+  async updateSession(sessionId: string, filePath: string, projectPath: string) {
     // Check if date has changed and reset if needed
     const _now = Date.now();
     const currentDayStart = this.getTodayStart();
@@ -525,9 +535,7 @@ class ClaudeSessionMonitor {
   }
 
   getActiveSessions() {
-    return Array.from(this.sessions.values()).filter(
-      (session) => session.status === "ACTIVE",
-    ).length;
+    return Array.from(this.sessions.values()).filter(session => session.status === "ACTIVE").length;
   }
 
   async recalculateDailyTotals() {
@@ -713,12 +721,7 @@ const loadSettings = async () => {
  * VIBECHAT Logo Component
  */
 const VibeChatLogo = ({ bannerText }: { bannerText?: string }) => (
-  <Box
-    marginTop={2}
-    marginBottom={2}
-    flexDirection="column"
-    alignItems="center"
-  >
+  <Box marginTop={2} marginBottom={2} flexDirection="column" alignItems="center">
     <Text color="magenta" bold>
       {`██╗   ██╗██╗██████╗ ███████╗\n`}
       {`██║   ██║██║██╔══██╗██╔════╝\n`}
@@ -766,14 +769,11 @@ const ClaudeMessages = [
 ];
 
 function ClaudeMessage() {
-  const [index, setIndex] = React.useState(() =>
-    Math.floor(Math.random() * ClaudeMessages.length),
-  );
+  const [index, setIndex] = React.useState(() => Math.floor(Math.random() * ClaudeMessages.length));
   return <Text wrap="wrap">{ClaudeMessages[index]}</Text>;
 }
 
-const CHAT_DEV_MODE =
-  import.meta.url.endsWith(".tsx") && process.env.VIBECHAT_DEV === "true";
+const CHAT_DEV_MODE = import.meta.url.endsWith(".tsx") && process.env.VIBECHAT_DEV === "true";
 
 /**
  * Chat UI Component
@@ -841,18 +841,13 @@ const ChatUI = ({
           next: (data: any) => {
             // Handle incoming messages - data is nested in event property
             const messageData = data.event || data;
-            if (
-              messageData.type === "message" &&
-              messageData.user &&
-              messageData.text
-            ) {
+            if (messageData.type === "message" && messageData.user && messageData.text) {
               const newMessage = {
                 id: messageData.id || Date.now(),
                 user: messageData.user,
                 amount: messageData.amount || "0x $0.00",
                 text: messageData.text,
-                timestamp:
-                  messageData.timestamp || new Date().toLocaleTimeString(),
+                timestamp: messageData.timestamp || new Date().toLocaleTimeString(),
               };
               setMessages((prev: any) => [...prev, newMessage]);
             }
@@ -937,10 +932,7 @@ const ChatUI = ({
         if (messageDims.height >= termHeight) {
           const numOverflow = Math.max(1, messages.length - termHeight);
           setMessages(messages.slice(numOverflow));
-          setStaticMessages((msgs: any) => [
-            ...msgs,
-            ...messages.slice(0, numOverflow),
-          ]);
+          setStaticMessages((msgs: any) => [...msgs, ...messages.slice(0, numOverflow)]);
         }
       } catch {
         // Ignore measureElement errors
@@ -1146,13 +1138,9 @@ const ChatUI = ({
               <ClaudeMessage />
               <Box marginTop={1}>
                 {exitWarning.show ? (
-                  <Text color="yellow">
-                    Press {exitWarning.type} again to exit
-                  </Text>
+                  <Text color="yellow">Press {exitWarning.type} again to exit</Text>
                 ) : (
-                  <Text color="gray">
-                    Today's spend: ${todayCost.toFixed(2)}
-                  </Text>
+                  <Text color="gray">Today's spend: ${todayCost.toFixed(2)}</Text>
                 )}
               </Box>
             </Box>
@@ -1168,22 +1156,14 @@ const ChatUI = ({
 
       {showChatInput && (
         <Box ref={chatInputRef} flexDirection="column">
-          <Box
-            marginTop={1}
-            borderStyle="round"
-            borderColor="gray"
-            paddingX={1}
-          >
+          <Box marginTop={1} borderStyle="round" borderColor="gray" paddingX={1}>
             <Text bold color={getUserColor(username)}>
               {username}
             </Text>
             {CHAT_DEV_MODE && <Text color="red"> (dev mode — ඞ sus ඞ) </Text>}
             <Text color="gray">
               {" "}
-              (${todayCost >= 100
-                ? todayCost.toFixed(0)
-                : todayCost.toFixed(2)}{" "}
-              {activeSessions}x):{" "}
+              (${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} {activeSessions}x):{" "}
             </Text>
             <TextInput
               value={inputValue}
@@ -1203,16 +1183,13 @@ const ChatUI = ({
                       ? "yellow"
                       : "gray"
               }
-              dimColor={
-                !showDisabledWarning && !showNetworkError && !exitWarning.show
-              }
+              dimColor={!showDisabledWarning && !showNetworkError && !exitWarning.show}
               bold={showDisabledWarning || showNetworkError || exitWarning.show}
             >
               {exitWarning.show
                 ? `Press ${exitWarning.type} again to exit`
                 : showNetworkError
-                  ? footerMessage ||
-                    "Network error - message not sent. Press Enter to retry"
+                  ? footerMessage || "Network error - message not sent. Press Enter to retry"
                   : isHidden
                     ? "Posting disabled until session resumes"
                     : "Use /nick <name> to change username"}
@@ -1251,15 +1228,12 @@ async function main() {
 
   process.on("SIGTERM", shutdown);
 
-  render(
-    <ChatUI monitor={monitor} bannerText={banner} announceText={announce} />,
-    {
-      exitOnCtrlC: false,
-    },
-  );
+  render(<ChatUI monitor={monitor} bannerText={banner} announceText={announce} />, {
+    exitOnCtrlC: false,
+  });
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error("Failed to start vibechat:", error.message);
   process.exit(1);
 });
