@@ -58,10 +58,12 @@ interface ChatMessage {
   timestamp?: string;
   type?: string;
   isBanner?: boolean;
+  color?: string;
 }
 
 interface Settings {
   username?: string;
+  color?: string;
   [key: string]: unknown;
 }
 
@@ -882,6 +884,7 @@ const ChatUI = ({
   const [showChatInput, setShowChatInput] = useState(false);
   const [_eventsChannel, setEventsChannel] = useState<unknown>(null);
   const [username, setUsername] = useState(os.userInfo().username);
+  const [userColor, setUserColor] = useState<string>("");
   const [settings, setSettings] = useState<Settings>({});
   const [exitWarning, setExitWarning] = useState<{
     timer: NodeJS.Timeout | null;
@@ -905,6 +908,16 @@ const ChatUI = ({
       setSettings(savedSettings);
       if (savedSettings.username) {
         setUsername(savedSettings.username);
+      }
+      if (savedSettings.color) {
+        setUserColor(savedSettings.color);
+      } else {
+        // Generate random color for new users
+        const randomColor = generateRandomColor();
+        setUserColor(randomColor);
+        const newSettings = { ...savedSettings, color: randomColor };
+        setSettings(newSettings);
+        saveSettings(newSettings);
       }
     };
     loadInitialSettings();
@@ -930,6 +943,7 @@ const ChatUI = ({
                 amount: messageData.amount || "0x $0.00",
                 text: messageData.text,
                 timestamp: messageData.timestamp || new Date().toLocaleTimeString(),
+                color: messageData.color,
               };
               setMessages((prev: ChatMessage[]) => [...prev, newMessage]);
             }
@@ -1094,6 +1108,37 @@ const ChatUI = ({
         return;
       }
 
+      if (trimmedInput.startsWith("/color ")) {
+        const newColor = trimmedInput.slice(7).trim();
+        const validColors = ["red", "green", "yellow", "blue", "magenta", "cyan"];
+        if (validColors.includes(newColor) && newColor !== userColor) {
+          const oldColor = userColor;
+          setUserColor(newColor);
+          // Save settings
+          const newSettings = { ...settings, color: newColor };
+          setSettings(newSettings);
+          saveSettings(newSettings);
+
+          // Broadcast color change to everyone
+          const colorChangeMessage = {
+            type: "message",
+            id: Date.now(),
+            user: "System",
+            amount: "",
+            text: `${username} changed their color from ${oldColor} to ${newColor}`,
+            timestamp: new Date().toLocaleTimeString(),
+          };
+
+          try {
+            await events.post("/default/public", colorChangeMessage, auth);
+          } catch (_error) {
+            // Silently fail if we can't broadcast the color change
+          }
+        }
+        setInputValue("");
+        return;
+      }
+
       // Block regular messages when hidden
       if (isHidden) {
         setShowDisabledWarning(true);
@@ -1110,6 +1155,7 @@ const ChatUI = ({
           : `$${todayCost >= 100 ? todayCost.toFixed(0) : todayCost.toFixed(2)} ${activeSessions}x`,
         text: trimmedInput,
         timestamp: new Date().toLocaleTimeString(),
+        color: userColor,
       };
 
       try {
@@ -1151,6 +1197,11 @@ const ChatUI = ({
     setMessages(initialMessages);
   }, [announceText]);
 
+  const generateRandomColor = () => {
+    const colors = ["red", "green", "yellow", "blue", "magenta", "cyan"];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
   const getUserColor = (username: string) => {
     // Special color for announcement messages
     if (username === "announcements") {
@@ -1166,13 +1217,13 @@ const ChatUI = ({
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const renderUsername = (username: string) => {
+  const renderUsername = (username: string, color?: string) => {
     const susIndicator = " ඞ sus ඞ";
     if (username.includes(susIndicator)) {
       const [baseUsername, ..._rest] = username.split(susIndicator);
       return (
         <>
-          <Text bold color={getUserColor(baseUsername)}>
+          <Text bold color={color || getUserColor(baseUsername)}>
             {baseUsername}
           </Text>
           <Text color="red">{susIndicator}</Text>
@@ -1180,7 +1231,7 @@ const ChatUI = ({
       );
     }
     return (
-      <Text bold color={getUserColor(username)}>
+      <Text bold color={color || getUserColor(username)}>
         {username}
       </Text>
     );
@@ -1191,14 +1242,12 @@ const ChatUI = ({
       return <VibeChatLogo bannerText={bannerText} />;
     }
 
-    const _userColor = getUserColor(msg.user || "anonymous");
-
     return (
       <Box>
         <Box width={30} flexShrink={0} justifyContent="space-between">
           <Text color="gray">{msg.amount}</Text>
           <Text>
-            {renderUsername(msg.user || "anonymous")}
+            {renderUsername(msg.user || "anonymous", msg.color)}
             <Text>: </Text>
           </Text>
         </Box>
@@ -1256,7 +1305,7 @@ const ChatUI = ({
       {showChatInput && (
         <Box ref={chatInputRef} flexDirection="column">
           <Box marginTop={1} borderStyle="round" borderColor="gray" paddingX={1}>
-            <Text bold color={getUserColor(username)}>
+            <Text bold color={userColor}>
               {username}
             </Text>
             {CHAT_DEV_MODE && <Text color="red"> (dev mode — ඞ sus ඞ) </Text>}
