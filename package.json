@@ -1,6 +1,6 @@
 {
   "name": "vibechat",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Chatroom for when you are bored waiting for Claude",
   "main": "main.js",
   "type": "module",
