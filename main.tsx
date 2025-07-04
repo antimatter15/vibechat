@@ -1079,7 +1079,7 @@ const ChatUI = ({
             type: "message",
             id: Date.now(),
             user: "System",
-            amount: "🔄",
+            amount: "",
             text: `${oldUsername} changed their name to ${newUsername}`,
             timestamp: new Date().toLocaleTimeString(),
           };
