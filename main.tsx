@@ -235,6 +235,7 @@ class ClaudeSessionMonitor {
   todayTokens = 0;
   todayCost = 0;
   todayStart: number;
+  currentDateKey: string;
   watchers: any[] = [];
   isShuttingDown = false;
   modelPricing = new Map();
@@ -244,6 +245,7 @@ class ClaudeSessionMonitor {
 
   constructor(pricingData: any = null) {
     this.todayStart = this.getTodayStart();
+    this.currentDateKey = this.getCurrentDateKey();
     this.claudePaths = this.getClaudePaths();
 
     // Load pricing data if provided
@@ -258,6 +260,22 @@ class ClaudeSessionMonitor {
     // setHours() uses local timezone by default
     today.setHours(0, 0, 0, 0);
     return today.getTime();
+  }
+
+  isToday(timestamp: string): boolean {
+    const messageDate = new Date(timestamp);
+    const today = new Date();
+
+    return (
+      messageDate.getFullYear() === today.getFullYear() &&
+      messageDate.getMonth() === today.getMonth() &&
+      messageDate.getDate() === today.getDate()
+    );
+  }
+
+  getCurrentDateKey(): string {
+    const today = new Date();
+    return `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
   }
 
   loadPricingData(pricingData: any) {
@@ -379,8 +397,7 @@ class ClaudeSessionMonitor {
         try {
           const data = JSON.parse(line);
           if (data?.message && data.timestamp) {
-            const timestamp = new Date(data.timestamp).getTime();
-            if (timestamp >= this.todayStart) {
+            if (this.isToday(data.timestamp)) {
               messages.push(data);
             }
           }
@@ -489,11 +506,11 @@ class ClaudeSessionMonitor {
 
   async updateSession(sessionId: string, filePath: string, projectPath: string) {
     // Check if date has changed and reset if needed
-    const _now = Date.now();
-    const currentDayStart = this.getTodayStart();
-    if (currentDayStart > this.todayStart) {
+    const newDateKey = this.getCurrentDateKey();
+    if (newDateKey !== this.currentDateKey) {
       // Day has changed, reset counters
-      this.todayStart = currentDayStart;
+      this.currentDateKey = newDateKey;
+      this.todayStart = this.getTodayStart(); // Keep this for compatibility
       this.todayTokens = 0;
       this.todayCost = 0;
       this.processedMessages.clear();
