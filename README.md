@@ -2,6 +2,9 @@
 
 A Chatroom for when you are bored waiting for Claude
 
+<img width="1046" alt="image" src="https://github.com/user-attachments/assets/6a2f9cd5-75d0-4486-b83b-aed39770336f" />
+
+
 
 ## Quick Start 
 
